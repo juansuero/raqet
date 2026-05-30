@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Raqet favicon</title>
+  <desc id="desc">Simplified Raqet icon for small sizes.</desc>
+  <rect width="512" height="512" rx="96" fill="#f9faf7" />
+  <g fill="none" stroke="#0e2d2b" stroke-linecap="round" stroke-linejoin="round">
+    <path
+      d="M128 356 C146 229 229 104 342 86 C390 78 427 93 442 126"
+      stroke-width="32"
+    />
+    <path
+      d="M445 145 C423 220 350 267 273 275"
+      stroke-width="25"
+    />
+    <path
+      d="M153 367 C185 268 260 185 379 121"
+      stroke-width="28"
+    />
+    <path
+      d="M274 276 L350 365"
+      stroke-width="29"
+      stroke-linecap="butt"
+    />
+    <path d="M139 285 V347" stroke-width="11" />
+    <path d="M101 322 H204" stroke-width="11" />
+  </g>
+  <circle cx="444" cy="137" r="25" fill="#9bdc00" />
+</svg>

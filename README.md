@@ -1,0 +1,180 @@
+# Raqet
+
+Raqet is a self-hostable solo tennis journal and video review app for one player.
+
+The open-source baseline is local-first:
+
+- SQLite persistence by default.
+- No hosted auth, invite gate, Sentry, Vercel Analytics, Supabase project, managed usage limit, or Raqet-hosted AI proxy required.
+- Local player profile onboarding, sessions, opponents, tournaments, stats, memories, settings, JSON export, and privacy/terms pages.
+- Local video library with point clipping, ffmpeg exports, and 9:16 reel exports.
+- Optional bring-your-own external AI keys for Gemini or OpenAI.
+
+Teams, coach roster workflows, hosted beta invites, hosted analytics/monitoring, and managed usage limits are excluded from the default self-hosted solo release.
+
+## Requirements
+
+- Node.js 22 or newer. Raqet uses Node's built-in SQLite module.
+- npm.
+- Optional: `ffmpeg` and `ffprobe` on `PATH` for video duration probing and clip/reel export.
+- Optional: a Gemini or OpenAI API key for AI actions.
+
+## Quick Start
+
+1. Install dependencies:
+
+```powershell
+npm.cmd install
+```
+
+2. Initialize SQLite:
+
+```powershell
+npm.cmd run db:init
+```
+
+By default this creates `data/raqet.sqlite`. To use a different database path:
+
+```powershell
+$env:RAQET_DB_PATH="C:/tmp/raqet.sqlite"
+npm.cmd run db:init
+```
+
+3. Start development:
+
+```powershell
+npm.cmd run dev
+```
+
+Open `http://localhost:3000/dashboard`. `/login` redirects into the solo app because local auth is not required.
+
+4. Production build:
+
+```powershell
+npm.cmd run build
+npm.cmd run start
+```
+
+## Configuration
+
+Copy `.env.example` to `.env` only when you need to override defaults. The app starts without any cloud credentials.
+
+```env
+RAQET_DB_PATH=
+RAQET_VIDEO_STORAGE_PATH=
+FFMPEG_PATH=
+FFPROBE_PATH=
+RAQET_AI_PROVIDER=
+RAQET_AI_DISABLED=false
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-flash-latest
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe
+RAQET_SOLO_EMAIL=player@localhost
+RAQET_SOLO_NAME=Player
+```
+
+## Optional AI
+
+AI is optional. Journaling, manual video review, stats, memories, settings, and export work without a provider.
+
+Gemini:
+
+```powershell
+$env:RAQET_AI_PROVIDER="gemini"
+$env:GEMINI_API_KEY="your-key"
+```
+
+OpenAI:
+
+```powershell
+$env:RAQET_AI_PROVIDER="openai"
+$env:OPENAI_API_KEY="your-key"
+```
+
+Set `RAQET_AI_DISABLED=true` to force the no-provider path even if keys exist in your shell or `.env`.
+
+External AI provider API costs are the self-hoster's responsibility. Raqet does not include billing, hosted usage limits, or managed Raqet AI infrastructure.
+
+AI actions disclose what is sent. Source full-match videos are never uploaded automatically. Selected video AI only sends an exported short clip after explicit user action.
+
+## Video Storage
+
+Raqet copies uploaded videos into local app storage because browsers cannot safely play arbitrary filesystem paths.
+
+Defaults:
+
+- Source videos: `data/video-library/sources`
+- Exported point clips: `data/video-library/exports/clips`
+- Exported 9:16 reels: `data/video-library/exports/reels`
+- Metadata: `data/raqet.sqlite`, or `RAQET_DB_PATH`
+
+Override video storage with `RAQET_VIDEO_STORAGE_PATH`.
+
+Deleting a clip in the app deletes clip metadata only. It does not delete source video files or exported media files unless a future explicit destructive action says so.
+
+## Backup And Restore
+
+Stop the app before copying live data.
+
+Backup:
+
+```powershell
+Copy-Item data/raqet.sqlite C:/backups/raqet.sqlite
+Copy-Item data/video-library C:/backups/video-library -Recurse
+```
+
+Restore:
+
+```powershell
+Copy-Item C:/backups/raqet.sqlite data/raqet.sqlite
+Copy-Item C:/backups/video-library data/video-library -Recurse
+```
+
+If you use custom paths, back up `RAQET_DB_PATH` and `RAQET_VIDEO_STORAGE_PATH` instead.
+
+## Verification
+
+```powershell
+npm.cmd run typecheck
+npm.cmd run build
+```
+
+Browser smoke checklist:
+
+- `/onboarding` saves a local player profile.
+- `/dashboard` loads without hosted env vars.
+- `/sessions`, `/sessions/new`, and session detail pages use SQLite-backed records.
+- `/opponents`, `/tournaments`, `/stats`, `/memory`, `/settings`, and `/api/export` load.
+- `/clips` imports a local video, plays it, marks point start/end, saves point metadata, exports a standard clip, and exports a 9:16 reel.
+- `/settings` shows AI provider status without exposing API keys.
+- `/team` and `/api/team` return 404 and Team is absent from normal navigation.
+
+See [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) before tagging a release.
+
+## Troubleshooting
+
+`SQLite is an experimental feature`
+
+Node currently marks the built-in SQLite module experimental. Use Node 22+ and expect this warning during builds.
+
+`ffmpeg was not found`
+
+Install ffmpeg and ffprobe, add them to `PATH`, or set `FFMPEG_PATH` and `FFPROBE_PATH`. Metadata still saves without ffmpeg; exports require it.
+
+AI key missing
+
+Leave AI disabled for local-only use, or configure `RAQET_AI_PROVIDER` with the matching provider key. Do not commit `.env`.
+
+Team routes
+
+The self-hosted release excludes Team source routes. `/team` and `/api/team` are blocked by middleware and should return 404.
+
+## Privacy
+
+Read [PRIVACY.md](PRIVACY.md). In short: local journal data and videos stay on the self-hoster's machine by default. External AI calls happen only when the self-hoster configures a provider and triggers an AI action.
+
+## License
+
+Raqet is released under the MIT License. See [LICENSE](LICENSE).

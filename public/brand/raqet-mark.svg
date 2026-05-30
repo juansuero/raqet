@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Raqet mark</title>
+  <desc id="desc">Standalone Raqet logo mark with an abstract racket-shaped R and lime ball accent.</desc>
+  <g fill="none" stroke="#0e2d2b" stroke-linecap="round" stroke-linejoin="round">
+    <path
+      d="M130 355 C148 230 228 102 342 84 C390 76 427 91 442 124"
+      stroke-width="30"
+    />
+    <path
+      d="M445 142 C423 219 350 267 271 274"
+      stroke-width="24"
+    />
+    <path
+      d="M153 367 C184 266 259 183 379 119"
+      stroke-width="26"
+    />
+    <path
+      d="M271 274 L350 366"
+      stroke-width="28"
+      stroke-linecap="butt"
+    />
+    <path d="M139 282 V347" stroke-width="10" />
+    <path d="M101 322 H205" stroke-width="10" />
+  </g>
+  <circle cx="444" cy="136" r="24" fill="#9bdc00" />
+</svg>

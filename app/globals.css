@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@font-face {
+  font-family: 'Cabinet Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Cabinet Grotesk'), url('https://fonts.cdnfonts.com/s/85514/CabinetGrotesk-Bold.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Cabinet Grotesk';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: local('Cabinet Grotesk'), url('https://fonts.cdnfonts.com/s/85514/CabinetGrotesk-Extrabold.woff') format('woff');
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-display;
+    font-weight: 700;
+  }
+}
+
+@layer utilities {
+  main :where(p, li, blockquote, pre) {
+    max-width: 54ch;
+  }
+
+  main :where(.max-w-none, .truncate, .whitespace-nowrap, .sr-only) {
+    max-width: none;
+  }
+
+  .readable-panel {
+    max-width: 72ch;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .hero-heading {
+    font-family: 'Cabinet Grotesk', 'DM Sans', 'Helvetica Neue', Arial, sans-serif;
+    font-weight: 800;
+  }
+
+  .font-display {
+    font-family: 'Cabinet Grotesk', 'DM Sans', 'Helvetica Neue', Arial, sans-serif !important;
+    font-weight: 700;
+  }
+}
+
+@keyframes heroDrift {
+  from {
+    transform: scale(1.08) translate3d(-1.5%, 1%, 0);
+  }
+
+  to {
+    transform: scale(1.03) translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
