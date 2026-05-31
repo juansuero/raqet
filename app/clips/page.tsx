@@ -90,6 +90,11 @@ function label(value?: string) {
   return (value || '').replaceAll('_', ' ')
 }
 
+function displayPath(base: string | undefined, fileName: string | undefined) {
+  if (!base || !fileName) return ''
+  return `${base.replace(/[\\/]+$/, '')}\\${fileName}`
+}
+
 function isTyping(target: EventTarget | null) {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement
 }
@@ -105,7 +110,9 @@ export default function ClipsPage() {
   const [selectedVideoId, setSelectedVideoId] = useState('')
   const [selectedClipId, setSelectedClipId] = useState('')
   const [busy, setBusy] = useState(false)
+  const [busyLabel, setBusyLabel] = useState('')
   const [status, setStatus] = useState('')
+  const [statusPath, setStatusPath] = useState('')
   const [error, setError] = useState('')
   const [startMs, setStartMs] = useState<number | null>(null)
   const [endMs, setEndMs] = useState<number | null>(null)
@@ -204,17 +211,21 @@ export default function ClipsPage() {
   const handleImport = async (file: File | null) => {
     if (!file) return
     setBusy(true)
+    setBusyLabel(`Importing ${file.name} into local storage...`)
     setError('')
     setStatus('')
+    setStatusPath('')
     try {
       const video = await importVideo(file)
       await refresh()
       setSelectedVideoId(video.id)
       setStatus('Video imported into local Raqet storage.')
+      setStatusPath(displayPath(storage.sourceVideos, video.storedFileName))
     } catch (importError) {
       setError(importError instanceof Error ? importError.message : 'Video import failed.')
     } finally {
       setBusy(false)
+      setBusyLabel('')
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
@@ -292,7 +303,10 @@ export default function ClipsPage() {
       return
     }
     setBusy(true)
+    setBusyLabel(exportAfter ? 'Saving point metadata and exporting clip with ffmpeg...' : 'Saving point metadata locally...')
     setError('')
+    setStatus('')
+    setStatusPath('')
     try {
       const saved = await createClip(makeClip())
       if (!saved) throw new Error('Clip metadata save returned no clip.')
@@ -300,26 +314,33 @@ export default function ClipsPage() {
       await refresh()
       setSelectedClipId(finalClip?.id || saved.id)
       setStatus(exportAfter ? 'Point saved and exported with ffmpeg.' : 'Point metadata saved locally. Source video was not sent to AI.')
+      setStatusPath(exportAfter ? finalClip?.exportedClipPath || '' : '')
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Clip save failed.')
     } finally {
       setBusy(false)
+      setBusyLabel('')
     }
   }
 
   const exportSelectedClip = async () => {
     if (!selectedClip) return
     setBusy(true)
+    setBusyLabel('Exporting selected clip with ffmpeg...')
     setError('')
+    setStatus('')
+    setStatusPath('')
     try {
       const exported = await exportClip(selectedClip.id)
       await refresh()
       setSelectedClipId(exported.id)
       setStatus('Clip exported with ffmpeg.')
+      setStatusPath(exported.exportedClipPath || '')
     } catch (exportError) {
       setError(exportError instanceof Error ? exportError.message : 'Clip export failed.')
     } finally {
       setBusy(false)
+      setBusyLabel('')
     }
   }
 
@@ -333,24 +354,32 @@ export default function ClipsPage() {
   const exportSelectedReel = async () => {
     if (!selectedClip) return
     setBusy(true)
+    setBusyLabel('Exporting 9:16 reel with ffmpeg...')
     setError('')
+    setStatus('')
+    setStatusPath('')
     try {
       const exported = await exportReel(selectedClip.id, reelKeyframes)
       await updateClip({ ...exported, reelKeyframes })
       await refresh()
       setSelectedClipId(exported.id)
       setStatus('9:16 reel exported with manual crop interpolation.')
+      setStatusPath(exported.exportedReelPath || '')
     } catch (exportError) {
       setError(exportError instanceof Error ? exportError.message : 'Reel export failed.')
     } finally {
       setBusy(false)
+      setBusyLabel('')
     }
   }
 
   const analyzeSelectedClip = async () => {
     if (!selectedClip) return
     setBusy(true)
+    setBusyLabel('Analyzing selected exported clip...')
     setError('')
+    setStatus('')
+    setStatusPath('')
     try {
       const analyzed = await analyzeSavedClip(selectedClip.id)
       await refresh()
@@ -360,6 +389,7 @@ export default function ClipsPage() {
       setError(analysisError instanceof Error ? analysisError.message : 'Selected clip analysis failed.')
     } finally {
       setBusy(false)
+      setBusyLabel('')
     }
   }
 
@@ -379,7 +409,23 @@ export default function ClipsPage() {
       </div>
 
       {error && <p className="mb-4 rounded-lg border border-danger/20 bg-danger/5 p-3 text-sm text-danger">{error}</p>}
-      {status && <p className="mb-4 rounded-lg border border-accent/20 bg-accent-light p-3 text-sm text-foreground">{status}</p>}
+      {(busyLabel || status) && (
+        <div className="mb-4 rounded-lg border border-accent/20 bg-accent-light p-3 text-sm text-foreground">
+          {busyLabel ? (
+            <div className="flex items-center gap-3">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+              <span>{busyLabel}</span>
+            </div>
+          ) : (
+            <p>{status}</p>
+          )}
+          {statusPath && (
+            <p className="mt-2 break-all rounded border border-border/60 bg-background/70 px-2 py-1 font-mono text-xs text-muted">
+              Saved to: {statusPath}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_420px]">
         <section className="space-y-4">
@@ -390,9 +436,9 @@ export default function ClipsPage() {
                 <h2 className="font-display text-xl font-bold text-foreground">{selectedVideo?.fileName || 'Import a local tennis video'}</h2>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white">
-                  <Upload className="h-4 w-4" />
-                  Import Video
+                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={busy} className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
+                  {busyLabel.startsWith('Importing') ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <Upload className="h-4 w-4" />}
+                  {busyLabel.startsWith('Importing') ? 'Importing...' : 'Import Video'}
                 </button>
                 <input ref={fileInputRef} type="file" accept="video/mp4,video/mov,video/quicktime,video/mpeg,video/webm" className="hidden" onChange={(event) => handleImport(event.target.files?.[0] ?? null)} />
               </div>
@@ -424,7 +470,7 @@ export default function ClipsPage() {
                   <Video className="mx-auto mb-3 h-9 w-9" />
                   <h2 className="font-display text-2xl font-bold text-foreground">Import a match or practice video</h2>
                   <p className="mt-2 text-sm leading-6">Choose an MP4, MOV, MPEG, MPG, or WebM. Raqet copies it into local self-hosted storage.</p>
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="mt-4 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white">Import Video</button>
+                  <button type="button" onClick={() => fileInputRef.current?.click()} disabled={busy} className="mt-4 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">{busyLabel.startsWith('Importing') ? 'Importing...' : 'Import Video'}</button>
                 </div>
               </div>
             )}
@@ -509,6 +555,7 @@ export default function ClipsPage() {
               <SelectedClipPanel
                 selectedClip={selectedClip}
                 busy={busy}
+                busyLabel={busyLabel}
                 crop={crop}
                 clipPreviewMs={clipPreviewMs}
                 reelKeyframes={reelKeyframes}
@@ -626,6 +673,7 @@ export default function ClipsPage() {
 function SelectedClipPanel({
   selectedClip,
   busy,
+  busyLabel,
   crop,
   clipPreviewMs,
   reelKeyframes,
@@ -642,6 +690,7 @@ function SelectedClipPanel({
 }: {
   selectedClip?: Clip
   busy: boolean
+  busyLabel: string
   crop: number
   clipPreviewMs: number
   reelKeyframes: ReelKeyframe[]
@@ -676,10 +725,25 @@ function SelectedClipPanel({
           <p className="mt-1 text-sm text-muted">{formatMs(selectedClip.startMs)} - {formatMs(selectedClip.endMs)} · {selectedClip.pointResult} · {label(selectedClip.pointEnding)}</p>
         </div>
         <button type="button" onClick={exportSelectedClip} disabled={busy} className="inline-flex items-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
-          <Download className="h-4 w-4" />
-          Export
+          {busyLabel.startsWith('Exporting selected') ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <Download className="h-4 w-4" />}
+          {busyLabel.startsWith('Exporting selected') ? 'Exporting...' : 'Export'}
         </button>
       </div>
+
+      {(selectedClip.exportedClipPath || selectedClip.exportedReelPath) && (
+        <div className="mt-4 space-y-2 rounded-lg border border-border bg-surface p-3 text-xs text-muted">
+          {selectedClip.exportedClipPath && (
+            <p className="break-all">
+              <span className="font-semibold text-foreground">Clip file:</span> <span className="font-mono">{selectedClip.exportedClipPath}</span>
+            </p>
+          )}
+          {selectedClip.exportedReelPath && (
+            <p className="break-all">
+              <span className="font-semibold text-foreground">Reel file:</span> <span className="font-mono">{selectedClip.exportedReelPath}</span>
+            </p>
+          )}
+        </div>
+      )}
 
       {selectedClip.exportedClipPath ? (
         <div className="relative mt-4 overflow-hidden rounded-lg bg-black">
@@ -740,7 +804,9 @@ function SelectedClipPanel({
             </div>
           ))}
         </div>
-        <button type="button" onClick={exportSelectedReel} disabled={busy || !selectedClip.exportedClipPath || reelKeyframes.length < 2} className="rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">Export 9:16 reel</button>
+        <button type="button" onClick={exportSelectedReel} disabled={busy || !selectedClip.exportedClipPath || reelKeyframes.length < 2} className="rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
+          {busyLabel.startsWith('Exporting 9:16') ? 'Exporting reel...' : 'Export 9:16 reel'}
+        </button>
       </div>
 
       <div className="mt-4 rounded-lg border border-border bg-surface p-3">
