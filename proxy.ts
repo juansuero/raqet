@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { videoAnalysisEnabled } from '@/lib/features'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   if (!videoAnalysisEnabled && (pathname === '/clips' || pathname.startsWith('/clips/'))) {
@@ -19,5 +19,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/team/:path*', '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: ['/api/team/:path*', '/((?!api|_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 }

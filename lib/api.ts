@@ -1,4 +1,4 @@
-import type { Clip, ClipAnalysis, CoachMessage, GoogleCalendarConnection, LocalVideo, MemoryItem, Opponent, Player, RatingHistoryEntry, ReelKeyframe, Session, Tournament, TournamentMatch } from '@/lib/data'
+import type { Clip, ClipAnalysis, CoachMessage, GoogleCalendarConnection, LocalVideo, MemoryItem, Opponent, Player, Project, RatingHistoryEntry, ReelKeyframe, Session, Tournament, TournamentMatch } from '@/lib/data'
 import type { CompiledPlayerProfile, PlayerInterviewAnswers } from '@/lib/player-profile'
 
 export const maxAudioUploadBytes = 18 * 1024 * 1024
@@ -295,18 +295,41 @@ export async function deleteCoachConversation(messageId: string) {
   return response.json() as Promise<{ deletedIds: string[] }>
 }
 
-export function loadClips() {
-  return request<Clip[]>('/api/clips')
+export function loadProjects() {
+  return request<Project[]>('/api/projects')
 }
 
-export function loadVideos() {
-  return request<{ videos: LocalVideo[]; storage: Record<string, string> }>('/api/videos')
+export async function createProject(name: string) {
+  const response = await fetch('/api/projects', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  if (!response.ok) throw new Error(await readApiError(response, 'Project creation failed'))
+  return response.json() as Promise<Project>
 }
 
-export async function importVideo(file: File, sessionId = '') {
+export async function deleteProject(id: string) {
+  const response = await fetch(`/api/projects?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+  if (!response.ok) throw new Error(await readApiError(response, 'Project delete failed'))
+  return response.json() as Promise<{ deletedId: string }>
+}
+
+export function loadClips(projectId?: string) {
+  const url = projectId ? `/api/clips?projectId=${encodeURIComponent(projectId)}` : '/api/clips'
+  return request<Clip[]>(url)
+}
+
+export function loadVideos(projectId?: string) {
+  const url = projectId ? `/api/videos?projectId=${encodeURIComponent(projectId)}` : '/api/videos'
+  return request<{ videos: LocalVideo[]; storage: Record<string, string> }>(url)
+}
+
+export async function importVideo(file: File, sessionId = '', projectId = '') {
   const form = new FormData()
   form.append('file', file)
   if (sessionId) form.append('sessionId', sessionId)
+  if (projectId) form.append('projectId', projectId)
   const response = await fetch('/api/videos', { method: 'POST', body: form })
   if (!response.ok) throw new Error(await readApiError(response, 'Video import failed'))
   return response.json() as Promise<LocalVideo>

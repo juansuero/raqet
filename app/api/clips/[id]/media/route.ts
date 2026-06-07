@@ -1,7 +1,6 @@
 import { createReadStream, existsSync, statSync } from 'fs'
-import { Readable } from 'stream'
 import { NextResponse } from 'next/server'
-import { getLocalClip } from '@/lib/video-library'
+import { getLocalClip, nodeStreamToWebStream } from '@/lib/video-library'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -23,8 +22,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   if (rangeHeader) {
     headers.set('Content-Range', `bytes ${start}-${end}/${size}`)
-    return new Response(Readable.toWeb(stream) as ReadableStream, { status: 206, headers })
+    return new Response(nodeStreamToWebStream(stream), { status: 206, headers })
   }
 
-  return new Response(Readable.toWeb(stream) as ReadableStream, { headers })
+  return new Response(nodeStreamToWebStream(stream), { headers })
 }

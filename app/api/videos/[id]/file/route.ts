@@ -1,6 +1,5 @@
-import { Readable } from 'stream'
 import { NextResponse } from 'next/server'
-import { getLocalVideo, readVideoRange } from '@/lib/video-library'
+import { getLocalVideo, nodeStreamToWebStream, readVideoRange } from '@/lib/video-library'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -16,8 +15,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   if (request.headers.get('range')) {
     headers.set('Content-Range', `bytes ${range.start}-${range.end}/${range.size}`)
-    return new Response(Readable.toWeb(range.stream) as ReadableStream, { status: 206, headers })
+    return new Response(nodeStreamToWebStream(range.stream), { status: 206, headers })
   }
 
-  return new Response(Readable.toWeb(range.stream) as ReadableStream, { headers })
+  return new Response(nodeStreamToWebStream(range.stream), { headers })
 }

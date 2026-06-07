@@ -1,11 +1,9 @@
 import { mkdirSync } from 'fs'
 import path from 'path'
-import type { CoachMessage, InAppNotification, MemoryItem, Opponent, Player, RatingHistoryEntry, Session, Tournament, TournamentMatch } from '@/lib/data'
+import type { CoachMessage, InAppNotification, MemoryItem, Opponent, Player, Project, RatingHistoryEntry, Session, Tournament, TournamentMatch } from '@/lib/data'
 import { emptyPlayer } from '@/lib/player-defaults'
 
-type DatabaseSync = any
-
-const sqlite = require('node:sqlite') as { DatabaseSync: new (path: string) => DatabaseSync }
+import { DatabaseSync } from 'node:sqlite'
 
 export const soloUser = {
   id: 'solo',
@@ -25,7 +23,7 @@ function now() {
 function database() {
   if (db) return db
   mkdirSync(path.dirname(dbPath), { recursive: true })
-  db = new sqlite.DatabaseSync(dbPath)
+  db = new DatabaseSync(dbPath)
   db.exec(`
     create table if not exists records (
       type text not null,
@@ -210,6 +208,22 @@ export function markSoloNotificationsRead(id?: string) {
     .forEach((item) => save('notification', { ...item, readAt: now() }))
 }
 
+export function listSoloProjects() {
+  return all<Project>('project').sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+}
+
+export function getSoloProject(id: string) {
+  return get<Project>('project', id)
+}
+
+export function saveSoloProject(project: Project) {
+  return save('project', { ...project, id: project.id || crypto.randomUUID() })
+}
+
+export function deleteSoloProject(id: string) {
+  remove('project', id)
+}
+
 export function soloExport() {
   return {
     exportedAt: now(),
@@ -222,5 +236,6 @@ export function soloExport() {
     memories: listSoloMemories(),
     coachMessages: listSoloCoachMessages(),
     ratingHistory: listSoloRatingHistory(),
+    projects: listSoloProjects(),
   }
 }

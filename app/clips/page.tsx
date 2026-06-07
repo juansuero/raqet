@@ -4,9 +4,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { AppShell } from '@/components/AppShell'
 import { PageHeader } from '@/components/PageHeader'
-import { analyzeSavedClip, createClip, deleteClip, exportClip, exportReel, importVideo, loadClips, loadVideos, updateClip } from '@/lib/api'
-import type { Clip, LocalVideo, PointEnding, ReelKeyframe, ShotContext } from '@/lib/data'
-import { Brain, Download, Film, FolderOpen, Scissors, Sparkles, Trash2, Upload, Video } from 'lucide-react'
+import { analyzeSavedClip, createClip, createProject, deleteClip, deleteProject, exportClip, exportReel, importVideo, loadClips, loadProjects, loadVideos, updateClip } from '@/lib/api'
+import type { Clip, LocalVideo, PointEnding, Project, ReelKeyframe, ShotContext } from '@/lib/data'
+import { Brain, Download, Film, FolderOpen, Plus, Scissors, Sparkles, Trash2, Upload, Video } from 'lucide-react'
 
 type PointPreset = {
   label: string
@@ -104,6 +104,10 @@ export default function ClipsPage() {
   const clipVideoRef = useRef<HTMLVideoElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const [projects, setProjects] = useState<Project[]>([])
+  const [selectedProjectId, setSelectedProjectId] = useState('')
+  const [newProjectName, setNewProjectName] = useState('')
+  const [showNewProject, setShowNewProject] = useState(false)
   const [videos, setVideos] = useState<LocalVideo[]>([])
   const [clips, setClips] = useState<Clip[]>([])
   const [storage, setStorage] = useState<Record<string, string>>({})
@@ -155,9 +159,11 @@ export default function ClipsPage() {
   const reelLeftPercent = clamp(crop, 0, 1) * reelTravelPercent
 
   const refresh = async () => {
-    const [videoData, clipData] = await Promise.all([loadVideos(), loadClips()])
+    const [projectData, videoData, clipData] = await Promise.all([loadProjects(), loadVideos(selectedProjectId || undefined), loadClips(selectedProjectId || undefined)])
+    const nextProjects = projectData ?? []
     const nextVideos = videoData?.videos ?? []
     const nextClips = clipData ?? []
+    setProjects(nextProjects)
     setVideos(nextVideos)
     setStorage(videoData?.storage ?? {})
     setClips(nextClips)
@@ -168,6 +174,12 @@ export default function ClipsPage() {
   useEffect(() => {
     refresh()
   }, [])
+
+  useEffect(() => {
+    setSelectedVideoId('')
+    setSelectedClipId('')
+    refresh()
+  }, [selectedProjectId])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -216,7 +228,7 @@ export default function ClipsPage() {
     setStatus('')
     setStatusPath('')
     try {
-      const video = await importVideo(file)
+      const video = await importVideo(file, '', selectedProjectId)
       await refresh()
       setSelectedVideoId(video.id)
       setStatus('Video imported into local Raqet storage.')
@@ -227,6 +239,45 @@ export default function ClipsPage() {
       setBusy(false)
       setBusyLabel('')
       if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const handleCreateProject = async () => {
+    const name = newProjectName.trim()
+    if (!name) return
+    setBusy(true)
+    setBusyLabel('Creating project...')
+    setError('')
+    try {
+      const project = await createProject(name)
+      await refresh()
+      setSelectedProjectId(project.id)
+      setNewProjectName('')
+      setShowNewProject(false)
+      setStatus(`Project "${project.name}" created.`)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Project creation failed.')
+    } finally {
+      setBusy(false)
+      setBusyLabel('')
+    }
+  }
+
+  const handleDeleteProject = async (projectId: string) => {
+    if (!confirm('Delete this project? Videos and clips inside it will stay in storage but will no longer be grouped.')) return
+    setBusy(true)
+    setBusyLabel('Deleting project...')
+    setError('')
+    try {
+      await deleteProject(projectId)
+      if (selectedProjectId === projectId) setSelectedProjectId('')
+      await refresh()
+      setStatus('Project deleted.')
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Project delete failed.')
+    } finally {
+      setBusy(false)
+      setBusyLabel('')
     }
   }
 
@@ -274,6 +325,7 @@ export default function ClipsPage() {
       id: crypto.randomUUID(),
       sessionId: '',
       playerId: 'solo',
+      projectId: selectedVideo.projectId || selectedProjectId || undefined,
       localVideoId: selectedVideo.id,
       startMs,
       endMs,
@@ -426,6 +478,43 @@ export default function ClipsPage() {
           )}
         </div>
       )}
+
+      <div className="mb-4 rounded-card border border-border bg-surface p-4 shadow-card">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-label text-muted">Project</p>
+            <h2 className="font-display text-lg font-bold text-foreground">{selectedProjectId ? projects.find((p) => p.id === selectedProjectId)?.name || 'Unknown project' : 'Default (no project)'}</h2>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {projects.map((project) => (
+              <div key={project.id} className="inline-flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setSelectedProjectId(project.id)}
+                  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium ${selectedProjectId === project.id ? 'border-accent bg-accent text-white' : 'border-border bg-background text-foreground hover:bg-surface-muted'}`}
+                >
+                  {project.name}
+                </button>
+                {selectedProjectId === project.id && (
+                  <button type="button" onClick={() => handleDeleteProject(project.id)} className="rounded p-1 text-danger hover:bg-danger/10">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+            <button type="button" onClick={() => setShowNewProject(true)} className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-surface-muted">
+              <Plus className="h-4 w-4" /> New
+            </button>
+          </div>
+        </div>
+        {showNewProject && (
+          <div className="mt-3 flex items-center gap-2">
+            <input value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} placeholder="Project name..." className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm sm:w-64" />
+            <button type="button" onClick={handleCreateProject} disabled={busy || !newProjectName.trim()} className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-50">Create</button>
+            <button type="button" onClick={() => { setShowNewProject(false); setNewProjectName('') }} className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-muted">Cancel</button>
+          </div>
+        )}
+      </div>
 
       <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_420px]">
         <section className="space-y-4">

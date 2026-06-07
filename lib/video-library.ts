@@ -1,15 +1,29 @@
-import { createReadStream, existsSync, mkdirSync, statSync, writeFileSync } from 'fs'
+import { createReadStream, createWriteStream, existsSync, mkdirSync, statSync } from 'fs'
 import path from 'path'
 import { spawn, spawnSync } from 'child_process'
 import type { Clip, LocalVideo, ReelKeyframe } from '@/lib/data'
 import { initSoloDatabase } from '@/lib/solo-store'
 
-const { DatabaseSync } = require('node:sqlite') as { DatabaseSync: new (path: string) => any }
+import { DatabaseSync } from 'node:sqlite'
 
 export const videoStorageRoot = process.env.RAQET_VIDEO_STORAGE_PATH || path.join(process.cwd(), 'data', 'video-library')
-export const sourceVideoDir = path.join(videoStorageRoot, 'sources')
-export const exportedClipDir = path.join(videoStorageRoot, 'exports', 'clips')
-export const exportedReelDir = path.join(videoStorageRoot, 'exports', 'reels')
+export const defaultSourceVideoDir = path.join(videoStorageRoot, 'sources')
+export const defaultExportedClipDir = path.join(videoStorageRoot, 'exports', 'clips')
+export const defaultExportedReelDir = path.join(videoStorageRoot, 'exports', 'reels')
+
+export const projectsDir = path.join(videoStorageRoot, 'projects')
+
+function projectSourceDir(projectId?: string) {
+  return projectId ? path.join(projectsDir, projectId, 'sources') : defaultSourceVideoDir
+}
+
+function projectExportedClipDir(projectId?: string) {
+  return projectId ? path.join(projectsDir, projectId, 'exports', 'clips') : defaultExportedClipDir
+}
+
+function projectExportedReelDir(projectId?: string) {
+  return projectId ? path.join(projectsDir, projectId, 'exports', 'reels') : defaultExportedReelDir
+}
 
 type RangeRead = {
   stream: ReturnType<typeof createReadStream>
@@ -24,10 +38,49 @@ function db() {
   return new DatabaseSync(dbPath)
 }
 
-function ensureDirs() {
-  mkdirSync(sourceVideoDir, { recursive: true })
-  mkdirSync(exportedClipDir, { recursive: true })
-  mkdirSync(exportedReelDir, { recursive: true })
+function ensureDirs(projectId?: string) {
+  mkdirSync(projectSourceDir(projectId), { recursive: true })
+  mkdirSync(projectExportedClipDir(projectId), { recursive: true })
+  mkdirSync(projectExportedReelDir(projectId), { recursive: true })
+}
+
+export function nodeStreamToWebStream(nodeStream: ReturnType<typeof createReadStream>): ReadableStream {
+  return new ReadableStream({
+    start(controller) {
+      let closed = false
+      const safeClose = () => {
+        if (closed) return
+        closed = true
+        try {
+          controller.close()
+        } catch {
+          // Already closed — ignore
+        }
+      }
+      const safeError = (err: Error) => {
+        if (closed) return
+        closed = true
+        try {
+          controller.error(err)
+        } catch {
+          // Already closed — ignore
+        }
+      }
+      nodeStream.on('data', (chunk) => {
+        try {
+          controller.enqueue(chunk)
+        } catch {
+          // Controller may be closed by browser — ignore
+        }
+      })
+      nodeStream.on('end', safeClose)
+      nodeStream.on('error', safeError)
+      nodeStream.on('close', safeClose)
+    },
+    cancel() {
+      nodeStream.destroy()
+    },
+  })
 }
 
 function safeFileStem(value: string) {
@@ -112,26 +165,65 @@ export function deleteLocalClip(id: string) {
 }
 
 export function localVideoPath(video: LocalVideo) {
-  return path.join(sourceVideoDir, video.storedFileName)
+  return path.join(projectSourceDir(video.projectId), video.storedFileName)
 }
 
-export async function importLocalVideo(file: File, sessionId?: string) {
-  ensureDirs()
+function probeDurationMsAsync(filePath: string, videoId: string) {
+  // Probe duration in the background so large imports don't block the HTTP response
+  setTimeout(() => {
+    try {
+      const durationMs = probeDurationMs(filePath)
+      if (!durationMs) return
+      const video = getLocalVideo(videoId)
+      if (!video) return
+      save('local_video', { ...video, durationMs })
+    } catch {
+      // Ignore probing errors — duration can stay unknown
+    }
+  }, 0)
+}
+
+export async function importLocalVideo(file: File, sessionId?: string, projectId?: string) {
+  ensureDirs(projectId)
   const id = crypto.randomUUID()
   const storedFileName = `${id}-${safeFileStem(file.name)}${extensionFor(file.name, file.type)}`
-  const bytes = Buffer.from(await file.arrayBuffer())
-  writeFileSync(path.join(sourceVideoDir, storedFileName), bytes)
+  const filePath = path.join(projectSourceDir(projectId), storedFileName)
+
+  // Fast chunked write: avoid Readable.fromWeb + pipeline overhead for large files
+  let written = 0
+  const writeStream = createWriteStream(filePath, { highWaterMark: 1024 * 1024 })
+  const reader = (file.stream() as ReadableStream<Uint8Array>).getReader()
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      writeStream.write(value)
+      written += value.byteLength
+    }
+  } finally {
+    reader.releaseLock()
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    writeStream.end(() => resolve())
+    writeStream.on('error', reject)
+  })
+
+  const size = statSync(filePath).size
   const video: LocalVideo = {
     id,
     sessionId: sessionId || undefined,
+    projectId: projectId || undefined,
     fileName: file.name || storedFileName,
     storedFileName,
     mimeType: file.type || 'application/octet-stream',
-    sizeBytes: bytes.length,
-    durationMs: probeDurationMs(path.join(sourceVideoDir, storedFileName)),
+    sizeBytes: size,
     importedAt: new Date().toISOString(),
   }
-  return save('local_video', video)
+  const saved = save('local_video', video)
+  probeDurationMsAsync(filePath, saved.id)
+  return saved
 }
 
 export function readVideoRange(video: LocalVideo, rangeHeader: string | null): RangeRead {
@@ -202,7 +294,6 @@ async function runFfmpeg(args: string[]) {
 }
 
 export async function exportStandardClip(clipId: string) {
-  ensureDirs()
   const clip = getLocalClip(clipId)
   if (!clip) throw new Error('Clip was not found in the local library.')
   const video = getLocalVideo(clip.localVideoId || '')
@@ -212,7 +303,8 @@ export async function exportStandardClip(clipId: string) {
   const startMs = clip.startMs ?? 0
   const durationMs = Math.max(0, (clip.endMs ?? 0) - startMs)
   if (durationMs <= 0) throw new Error('Clip end must be after clip start.')
-  const output = path.join(exportedClipDir, `${clip.id}-${safeFileStem(clip.title)}.mp4`)
+  ensureDirs(video.projectId)
+  const output = path.join(projectExportedClipDir(video.projectId), `${clip.id}-${safeFileStem(clip.title)}.mp4`)
   await runFfmpeg(['-y', '-ss', seconds(startMs), '-i', source, '-t', seconds(durationMs), '-c', 'copy', output])
   return saveLocalClip({ ...clip, exportedClipPath: output })
 }
@@ -235,7 +327,6 @@ function cropExpression(keyframes: Array<[number, number]>) {
 }
 
 export async function exportReelClip(clipId: string, keyframes: ReelKeyframe[]) {
-  ensureDirs()
   if (keyframes.length < 2) throw new Error('Add at least two reel keyframes before exporting.')
   const clip = getLocalClip(clipId)
   if (!clip) throw new Error('Clip was not found in the local library.')
@@ -256,20 +347,21 @@ export async function exportReelClip(clipId: string, keyframes: ReelKeyframe[]) 
   const normalized = keyframes
     .map((keyframe) => [Math.min(durationSeconds, Math.max(0, keyframe.timestampMs / 1000)), Math.round(Math.min(1, Math.max(0, keyframe.xPercent)) * maxX / 2) * 2] as [number, number])
     .sort((a, b) => a[0] - b[0])
-  const output = path.join(exportedReelDir, `${clip.id}-${safeFileStem(clip.title)}-reel.mp4`)
-  const cropX = `min(${maxX}\\,max(0\\,2*floor((${cropExpression(normalized)})/2)))`
+  ensureDirs(video.projectId)
+  const output = path.join(projectExportedReelDir(video.projectId), `${clip.id}-${safeFileStem(clip.title)}-reel.mp4`)
+  const cropX = `min(${maxX}\,max(0\,2*floor((${cropExpression(normalized)})/2)))`
   const filter = `crop=${cropWidth}:${cropHeight}:${cropX}:0,scale=1080:1920,setsar=1`
   await runFfmpeg(['-y', '-ss', seconds(startMs), '-i', source, '-t', seconds(durationMs), '-vf', filter, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', output])
   return saveLocalClip({ ...clip, exportedReelPath: output, reelKeyframes: keyframes })
 }
 
-export function videoStorageInfo() {
-  ensureDirs()
+export function videoStorageInfo(projectId?: string) {
+  ensureDirs(projectId)
   return {
     root: videoStorageRoot,
-    sourceVideos: sourceVideoDir,
-    exportedClips: exportedClipDir,
-    exportedReels: exportedReelDir,
+    sourceVideos: projectSourceDir(projectId),
+    exportedClips: projectExportedClipDir(projectId),
+    exportedReels: projectExportedReelDir(projectId),
     metadata: process.env.RAQET_DB_PATH || path.join(process.cwd(), 'data', 'raqet.sqlite'),
   }
 }

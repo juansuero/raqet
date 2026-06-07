@@ -119,6 +119,7 @@ export interface Clip {
   id: string
   sessionId: string
   playerId: string
+  projectId?: string
   localVideoId?: string
   startMs?: number
   endMs?: number
@@ -184,9 +185,16 @@ export interface ReelKeyframe {
   xPercent: number
 }
 
+export interface Project {
+  id: string
+  name: string
+  createdAt: string
+}
+
 export interface LocalVideo {
   id: string
   sessionId?: string
+  projectId?: string
   fileName: string
   storedFileName: string
   mimeType: string

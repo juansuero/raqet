@@ -10,6 +10,7 @@ function clipFromBody(body: Partial<Clip>): Clip {
     id: body.id || crypto.randomUUID(),
     sessionId: body.sessionId || '',
     playerId: 'solo',
+    projectId: body.projectId || undefined,
     localVideoId: body.localVideoId,
     startMs,
     endMs,
@@ -36,8 +37,11 @@ function clipFromBody(body: Partial<Clip>): Clip {
   }
 }
 
-export async function GET() {
-  return NextResponse.json(listLocalClips())
+export async function GET(request: Request) {
+  const projectId = new URL(request.url).searchParams.get('projectId') || undefined
+  const clips = listLocalClips()
+  const filtered = projectId ? clips.filter((c) => c.projectId === projectId) : clips
+  return NextResponse.json(filtered)
 }
 
 export async function POST(request: Request) {
