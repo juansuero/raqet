@@ -11,7 +11,7 @@ export function AppShell({
   subtitle?: string
 }) {
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen gap-2 bg-background p-2">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar title={title} subtitle={subtitle} />

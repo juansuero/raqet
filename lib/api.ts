@@ -325,14 +325,161 @@ export function loadVideos(projectId?: string) {
   return request<{ videos: LocalVideo[]; storage: Record<string, string> }>(url)
 }
 
-export async function importVideo(file: File, sessionId = '', projectId = '') {
+export async function deleteVideo(id: string) {
+  const response = await fetch(`/api/videos?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+  if (!response.ok) throw new Error(await readApiError(response, 'Source video delete failed'))
+  return response.json() as Promise<{ deletedId: string }>
+}
+
+export async function createVideoPlaybackProxy(id: string) {
+  const response = await fetch(`/api/videos/${encodeURIComponent(id)}/proxy`, { method: 'POST' })
+  if (!response.ok) throw new Error(await readApiError(response, 'Playback proxy creation failed'))
+  return response.json() as Promise<LocalVideo>
+}
+
+export type PointCandidate = {
+  id: string
+  startMs: number
+  endMs: number
+  title: string
+  confidence: number
+  reason: string
+}
+
+export type PointDetectionResult = {
+  videoId: string
+  analyzedStartMs: number
+  analyzedEndMs: number
+  durationMs?: number
+  candidates: PointCandidate[]
+  heuristic: string
+  warning?: string
+}
+
+export type PointDetectionJob = {
+  id: string
+  videoId: string
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
+  startMs: number
+  endMs?: number
+  maxDurationMs: number
+  progressPercent: number
+  createdAt: string
+  updatedAt: string
+  result?: PointDetectionResult
+  error?: string
+}
+
+export type HighlightExportOptions = {
+  projectId?: string
+  localVideoId?: string
+  clipIds?: string[]
+  fade?: boolean
+  quality?: 'draft' | 'standard' | 'high'
+  resolution?: '720' | '1080' | 'source'
+  fps?: 'source' | '30' | '60'
+}
+
+export type HighlightExportJob = {
+  id: string
+  status: 'queued' | 'running' | 'completed' | 'failed'
+  progressPercent: number
+  createdAt: string
+  updatedAt: string
+  result?: { outputPath: string; clipCount: number; durationSeconds: number }
+  error?: string
+}
+
+export async function importVideo(file: File, sessionId = '', projectId = '', onProgress?: (progress: number) => void) {
   const form = new FormData()
-  form.append('file', file)
   if (sessionId) form.append('sessionId', sessionId)
   if (projectId) form.append('projectId', projectId)
-  const response = await fetch('/api/videos', { method: 'POST', body: form })
-  if (!response.ok) throw new Error(await readApiError(response, 'Video import failed'))
+  form.append('file', file)
+  const params = new URLSearchParams()
+  if (sessionId) params.set('sessionId', sessionId)
+  if (projectId) params.set('projectId', projectId)
+  const url = params.size ? `/api/videos?${params.toString()}` : '/api/videos'
+  if (!onProgress) {
+    const response = await fetch(url, { method: 'POST', body: form })
+    if (!response.ok) throw new Error(await readApiError(response, 'Video import failed'))
+    return response.json() as Promise<LocalVideo>
+  }
+
+  return new Promise<LocalVideo>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', url)
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)))
+    }
+    xhr.onload = () => {
+      let data: unknown = null
+      try {
+        data = xhr.responseText ? JSON.parse(xhr.responseText) : null
+      } catch {
+        data = null
+      }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        const message = data && typeof data === 'object' && 'error' in data && typeof data.error === 'string' ? data.error : 'Video import failed'
+        reject(new Error(message))
+        return
+      }
+      onProgress(100)
+      resolve(data as LocalVideo)
+    }
+    xhr.onerror = () => reject(new Error('Video import request was interrupted. Check free disk space, then use Large local file import for very large videos.'))
+    xhr.onabort = () => reject(new Error('Video import was cancelled.'))
+    xhr.send(form)
+  })
+}
+
+export async function importVideoFromPath(filePath: string, sessionId = '', projectId = '') {
+  const response = await fetch('/api/videos/local', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filePath, sessionId, projectId }),
+  })
+  if (!response.ok) throw new Error(await readApiError(response, 'Local video import failed'))
   return response.json() as Promise<LocalVideo>
+}
+
+export async function findPointCandidates(videoId: string, options: { startMs?: number; endMs?: number; maxDurationMs?: number } = {}) {
+  const response = await fetch(`/api/videos/${encodeURIComponent(videoId)}/points`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  })
+  if (!response.ok) throw new Error(await readApiError(response, 'Point detection failed'))
+  return response.json() as Promise<PointDetectionResult>
+}
+
+export async function startPointDetection(videoId: string, options: { startMs?: number; endMs?: number; maxDurationMs?: number } = {}) {
+  const response = await fetch(`/api/videos/${encodeURIComponent(videoId)}/points`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...options, background: true }),
+  })
+  if (!response.ok) throw new Error(await readApiError(response, 'Point detection failed'))
+  return response.json() as Promise<PointDetectionJob>
+}
+
+export async function loadPointDetectionJob(videoId: string, jobId: string) {
+  const response = await fetch(`/api/videos/${encodeURIComponent(videoId)}/points?jobId=${encodeURIComponent(jobId)}`)
+  if (!response.ok) throw new Error(await readApiError(response, 'Point detection job check failed'))
+  return response.json() as Promise<PointDetectionJob>
+}
+
+export async function loadPointDetectionJobs(videoId: string) {
+  const response = await fetch(`/api/videos/${encodeURIComponent(videoId)}/points`)
+  if (!response.ok) throw new Error(await readApiError(response, 'Point detection jobs load failed'))
+  return response.json() as Promise<PointDetectionJob[]>
+}
+
+export async function cancelPointDetectionJob(videoId: string, jobId: string) {
+  const response = await fetch(`/api/videos/${encodeURIComponent(videoId)}/points?jobId=${encodeURIComponent(jobId)}`, {
+    method: 'DELETE',
+  })
+  if (!response.ok) throw new Error(await readApiError(response, 'Point detection stop failed'))
+  return response.json() as Promise<PointDetectionJob>
 }
 
 export function createClip(clip: Clip) {
@@ -362,6 +509,52 @@ export async function exportClip(id: string) {
   const response = await fetch(`/api/clips/${encodeURIComponent(id)}/export`, { method: 'POST' })
   if (!response.ok) throw new Error(await readApiError(response, 'Clip export failed'))
   return response.json() as Promise<Clip>
+}
+
+export async function exportClips(projectId?: string) {
+  const response = await fetch('/api/clips/export', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ projectId }),
+  })
+  if (!response.ok) throw new Error(await readApiError(response, 'Batch export failed'))
+  return response.json() as Promise<{ clips: Clip[]; exportedCount: number; failed: Array<{ id: string; title: string; error: string }> }>
+}
+
+export async function exportHighlight(options: HighlightExportOptions) {
+  const response = await fetch('/api/clips/highlight', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  })
+  if (!response.ok) throw new Error(await readApiError(response, 'Highlight export failed'))
+  return response.json() as Promise<{ outputPath: string; clipCount: number; durationSeconds: number }>
+}
+
+export async function startHighlightExport(options: HighlightExportOptions) {
+  const response = await fetch('/api/clips/highlight', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...options, background: true }),
+  })
+  if (!response.ok) throw new Error(await readApiError(response, 'Highlight export failed'))
+  return response.json() as Promise<HighlightExportJob>
+}
+
+export async function loadHighlightExportJob(jobId: string) {
+  const response = await fetch(`/api/clips/highlight?jobId=${encodeURIComponent(jobId)}`)
+  if (!response.ok) throw new Error(await readApiError(response, 'Highlight export job check failed'))
+  return response.json() as Promise<HighlightExportJob>
+}
+
+export async function showFileLocation(path: string) {
+  const response = await fetch('/api/files/show', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path }),
+  })
+  if (!response.ok) throw new Error(await readApiError(response, 'Could not open file location'))
+  return response.json() as Promise<{ ok: true }>
 }
 
 export async function exportReel(id: string, keyframes: ReelKeyframe[]) {

@@ -200,6 +200,8 @@ export interface LocalVideo {
   mimeType: string
   sizeBytes: number
   durationMs?: number
+  playbackProxyStoredFileName?: string
+  playbackProxyCreatedAt?: string
   importedAt: string
 }
 

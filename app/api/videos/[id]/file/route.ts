@@ -1,14 +1,20 @@
 import { NextResponse } from 'next/server'
-import { getLocalVideo, nodeStreamToWebStream, readVideoRange } from '@/lib/video-library'
+import { getLocalVideo, localVideoFileAvailable, nodeStreamToWebStream, playbackMimeType, readVideoRange } from '@/lib/video-library'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const video = getLocalVideo(id)
   if (!video) return NextResponse.json({ error: 'Video not found.' }, { status: 404 })
+  if (!localVideoFileAvailable(video)) return NextResponse.json({ error: 'Source video file is missing from local storage.' }, { status: 404 })
 
-  const range = readVideoRange(video, request.headers.get('range'))
+  let range: ReturnType<typeof readVideoRange>
+  try {
+    range = readVideoRange(video, request.headers.get('range'))
+  } catch {
+    return NextResponse.json({ error: 'Source video file is missing from local storage.' }, { status: 404 })
+  }
   const headers = new Headers({
-    'Content-Type': video.mimeType || 'video/mp4',
+    'Content-Type': playbackMimeType(video),
     'Accept-Ranges': 'bytes',
     'Content-Length': String(range.contentLength),
   })

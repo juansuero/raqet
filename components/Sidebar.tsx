@@ -90,7 +90,7 @@ export function Sidebar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-40 h-screen bg-surface border-r border-border flex flex-col transition-transform duration-200 lg:translate-x-0 w-64 ${
+        className={`fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-border bg-surface transition-transform duration-200 lg:sticky lg:top-2 lg:h-[calc(100vh-1rem)] lg:translate-x-0 lg:rounded-card lg:border ${
           collapsed ? 'lg:w-20' : 'lg:w-64'
         } ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
