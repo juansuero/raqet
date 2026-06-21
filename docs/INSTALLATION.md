@@ -79,4 +79,4 @@ npm.cmd run typecheck
 npm.cmd run build
 ```
 
-Then run the browser checks in [../RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md).
+Then run the browser checks listed in the README verification section.

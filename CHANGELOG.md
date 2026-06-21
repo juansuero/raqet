@@ -9,4 +9,4 @@
 - Local video library with source video storage, point clipping, standard clip export, batch highlight export, and 9:16 reel export.
 - Optional provider-agnostic external AI endpoint support for profile, session debrief, coach, pattern, training block, transcription, and selected exported clip analysis.
 - Local-first privacy model with no required Supabase, hosted auth, invite gate, Sentry, Vercel Analytics, managed usage limit, billing, or Raqet-hosted AI proxy.
-- Self-hosted release docs, security policy, contribution guide, support guide, and release checklist.
+- Self-hosted release docs, security policy, contribution guide, and support guide.

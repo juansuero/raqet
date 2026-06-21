@@ -12,7 +12,7 @@ Include:
 - SQLite persistence through the local data layer.
 - Local video library, source video storage, point clipping, ffmpeg clip export, batch highlight export, and 9:16 reel export.
 - Optional bring-your-own external AI endpoint configuration.
-- Setup, privacy, security, contribution, support, changelog, and release checklist docs.
+- Setup, privacy, security, contribution, support, and changelog docs.
 
 Exclude from the public self-hosted release:
 

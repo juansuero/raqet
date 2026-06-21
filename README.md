@@ -200,8 +200,6 @@ Browser smoke checklist:
 - `/settings` shows AI endpoint status without exposing API keys.
 - `/team` and `/api/team` return 404 and Team is absent from normal navigation.
 
-See [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) before tagging a release.
-
 ## Troubleshooting
 
 `SQLite is an experimental feature`
@@ -227,7 +225,6 @@ The self-hosted release excludes Team source routes. `/team` and `/api/team` are
 - [docs/IMPORT_EXPORT.md](docs/IMPORT_EXPORT.md)
 - [docs/PUBLISHING.md](docs/PUBLISHING.md)
 - [RELEASE_GUIDE.md](RELEASE_GUIDE.md)
-- [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)
 - [CHANGELOG.md](CHANGELOG.md)
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [SECURITY.md](SECURITY.md)
