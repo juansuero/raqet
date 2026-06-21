@@ -1,6 +1,6 @@
 # Raqet Self-Hosted Release Plan
 
-Last updated: 2026-05-30
+Last updated: 2026-06-21
 
 ## Scope
 
@@ -28,8 +28,8 @@ Default release requirements:
 
 ## Remaining Before Public GitHub Launch
 
-- [ ] Curate the dirty working tree into an intentional commit set.
-- [ ] Decide whether `apps/desktop` ships in the public repository or stays private/internal.
+- [x] Curate the dirty working tree into an intentional commit set.
+- [x] Keep `apps/desktop` private/internal and remove it from the public repository.
 - [ ] Remove or exclude Team source files from the public repository, not only runtime navigation.
 - [ ] Review the large `package-lock.json` diff.
 - [ ] Create a clean public repository or clean release branch.

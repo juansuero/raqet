@@ -28,9 +28,6 @@ tsconfig.tsbuildinfo
 screenshots/
 landing-desktop.png
 landing-mobile.png
-apps/desktop/dist/
-apps/desktop/src-tauri/target/
-apps/desktop/src-tauri/gen/
 TEAM_PRODUCT_PLAN.md
 
 .vercel
