@@ -223,8 +223,6 @@ The self-hosted release excludes Team source routes. `/team` and `/api/team` are
 - [docs/INSTALLATION.md](docs/INSTALLATION.md)
 - [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 - [docs/IMPORT_EXPORT.md](docs/IMPORT_EXPORT.md)
-- [docs/PUBLISHING.md](docs/PUBLISHING.md)
-- [RELEASE_GUIDE.md](RELEASE_GUIDE.md)
 - [CHANGELOG.md](CHANGELOG.md)
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [SECURITY.md](SECURITY.md)

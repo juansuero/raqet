@@ -35,7 +35,7 @@ npm.cmd run typecheck
 npm.cmd run build
 ```
 
-If your change touches video export, verify ffmpeg behavior. If your change touches AI, verify the no-provider path still works.
+If your change touches video export, verify ffmpeg behavior. If your change touches AI, verify the no-endpoint path still works.
 
 ## Data And Secrets
 

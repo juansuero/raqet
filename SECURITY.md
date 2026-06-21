@@ -10,7 +10,7 @@ Do not open a public issue for a vulnerability that exposes secrets, private dat
 
 Report privately to:
 
-`direccion@veltastech.com`
+`thejuansuero@gmail.com`
 
 Include:
 

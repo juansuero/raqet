@@ -10,10 +10,10 @@
 - `raqet-mark-1024.jpg` — JPG export on off-white background.
 - `raqet-mark-2048.jpg` — high-resolution JPG export on off-white background.
 - `raqet-favicon-512.png` — square favicon/app icon PNG export.
-- `raqet-logo-imagegen.png` — final AI-generated logo raster selected from the imagegen exploration.
-- `raqet-logo-imagegen.jpg` — JPG version of the final AI-generated logo raster.
+- `raqet-logo-imagegen.png` — logo raster source.
+- `raqet-logo-imagegen.jpg` — JPG version of the logo raster source.
 - `raqet-profile-court-paint.webp` — subtle painted court background for the player profile section.
-- `raqet-beta-gate-paint.webp` — historical painted gate background used by the self-hosting section.
+- `raqet-beta-gate-paint.webp` — painted gate background used by the self-hosting section.
 - `raqet-footer-still-life-paint.webp` — painted racket, ball, and journal still life for the landing footer.
 
 ## Colors
