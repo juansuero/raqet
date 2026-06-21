@@ -1,6 +1,6 @@
 'use client'
 
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight, CheckCircle, Loader2, Save, Upload } from 'lucide-react'
@@ -23,6 +23,7 @@ export default function OnboardingPage() {
   const [compiling, setCompiling] = useState(false)
   const [saving, setSaving] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [draggingImport, setDraggingImport] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [loadedDraft, setLoadedDraft] = useState(false)
@@ -108,11 +109,7 @@ export default function OnboardingPage() {
     handleAnswer(currentQuestion.id, current ? `${current}\n${transcript}` : transcript)
   }
 
-  const importData = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
-
+  const importFile = async (file: File) => {
     const confirmed = window.confirm('Import this Raqet export into your local self-hosted database? Existing records with the same IDs will be updated.')
     if (!confirmed) return
 
@@ -137,6 +134,29 @@ export default function OnboardingPage() {
     } finally {
       setImporting(false)
     }
+  }
+
+  const importData = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (file) await importFile(file)
+  }
+
+  const allowImportDrop = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault()
+    if (!importing) setDraggingImport(true)
+  }
+
+  const endImportDrag = () => {
+    setDraggingImport(false)
+  }
+
+  const dropImportFile = async (event: DragEvent<HTMLElement>) => {
+    event.preventDefault()
+    setDraggingImport(false)
+    if (importing) return
+    const file = event.dataTransfer.files?.[0]
+    if (file) await importFile(file)
   }
 
   const updateCompiledField = (
@@ -338,12 +358,18 @@ export default function OnboardingPage() {
       <div className="grid lg:grid-cols-[1fr_360px] gap-6">
         <section ref={questionCardRef} className="space-y-4">
           {isFirst && (
-            <div className="rounded-card border border-border bg-surface p-5 shadow-card sm:p-6">
+            <div
+              onDragEnter={allowImportDrop}
+              onDragOver={allowImportDrop}
+              onDragLeave={endImportDrag}
+              onDrop={dropImportFile}
+              className={`rounded-card border bg-surface p-5 shadow-card transition-colors sm:p-6 ${draggingImport ? 'border-accent bg-accent-light' : 'border-border'}`}
+            >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="font-display text-xl font-bold text-foreground">Already used Raqet?</h2>
                   <p className="mt-2 max-w-[58ch] text-sm leading-relaxed text-muted">
-                    Import a Raqet hosted or self-hosted JSON export instead of rebuilding your profile from scratch.
+                    Drop a Raqet hosted or self-hosted JSON export here, or choose a file instead of rebuilding your profile from scratch.
                   </p>
                 </div>
                 <button

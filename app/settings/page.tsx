@@ -1,6 +1,6 @@
 'use client'
 
-import { ChangeEvent, useEffect, useRef, useState } from 'react'
+import { ChangeEvent, DragEvent, useEffect, useRef, useState } from 'react'
 import { AppShell } from '@/components/AppShell'
 import { PageHeader } from '@/components/PageHeader'
 import { AiActionLogCard } from '@/components/AiActionLog'
@@ -39,6 +39,7 @@ export default function SettingsPage() {
     supportsVideoAnalysis: boolean
   } | null>(null)
   const [importing, setImporting] = useState(false)
+  const [draggingImport, setDraggingImport] = useState(false)
   const [importStatus, setImportStatus] = useState('')
   const [importError, setImportError] = useState('')
 
@@ -46,9 +47,7 @@ export default function SettingsPage() {
     fetch('/api/ai/config').then((response) => response.json()).then(setAiConfig).catch(() => null)
   }, [])
 
-  async function importData(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    event.target.value = ''
+  async function importFile(file: File) {
     if (!file) return
     const confirmed = window.confirm('Import this Raqet export into the local database? Existing records with the same IDs will be updated.')
     if (!confirmed) return
@@ -75,6 +74,29 @@ export default function SettingsPage() {
     } finally {
       setImporting(false)
     }
+  }
+
+  async function importData(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (file) await importFile(file)
+  }
+
+  function allowImportDrop(event: DragEvent<HTMLElement>) {
+    event.preventDefault()
+    if (!importing) setDraggingImport(true)
+  }
+
+  function endImportDrag() {
+    setDraggingImport(false)
+  }
+
+  async function dropImportFile(event: DragEvent<HTMLElement>) {
+    event.preventDefault()
+    setDraggingImport(false)
+    if (importing) return
+    const file = event.dataTransfer.files?.[0]
+    if (file) await importFile(file)
   }
 
   return (
@@ -108,12 +130,18 @@ export default function SettingsPage() {
           </section>
         ))}
 
-        <section className="rounded-card border border-border bg-surface p-5 shadow-card">
+        <section
+          onDragEnter={allowImportDrop}
+          onDragOver={allowImportDrop}
+          onDragLeave={endImportDrag}
+          onDrop={dropImportFile}
+          className={`rounded-card border bg-surface p-5 shadow-card transition-colors ${draggingImport ? 'border-accent bg-accent-light' : 'border-border'}`}
+        >
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="font-display text-lg font-bold text-foreground">Import Data</h2>
               <p className="mt-1 text-sm leading-6 text-muted">
-                Bring in a Raqet hosted export or a self-hosted JSON export. Records are merged by ID.
+                Drop a Raqet hosted or self-hosted JSON export here, or choose a file. Records are merged by ID.
               </p>
             </div>
             <button
