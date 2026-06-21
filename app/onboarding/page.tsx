@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, ArrowRight, CheckCircle, Save } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CheckCircle, Loader2, Save, Upload } from 'lucide-react'
 import { AppShell } from '@/components/AppShell'
 import { PageHeader } from '@/components/PageHeader'
 import { currentPlayer } from '@/lib/data'
@@ -22,10 +22,12 @@ export default function OnboardingPage() {
   const [reviewing, setReviewing] = useState(false)
   const [compiling, setCompiling] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [loadedDraft, setLoadedDraft] = useState(false)
   const questionCardRef = useRef<HTMLElement | null>(null)
+  const importInputRef = useRef<HTMLInputElement | null>(null)
 
   const currentQuestion = playerInterviewQuestions[currentIndex]
   const isFirst = currentIndex === 0
@@ -104,6 +106,37 @@ export default function OnboardingPage() {
   const appendTranscript = (transcript: string) => {
     const current = answers[currentQuestion.id]?.trim()
     handleAnswer(currentQuestion.id, current ? `${current}\n${transcript}` : transcript)
+  }
+
+  const importData = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    const confirmed = window.confirm('Import this Raqet export into your local self-hosted database? Existing records with the same IDs will be updated.')
+    if (!confirmed) return
+
+    setImporting(true)
+    setError('')
+    try {
+      const data = JSON.parse(await file.text())
+      const response = await fetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!response.ok) {
+        const body = await response.json().catch(() => null)
+        throw new Error(typeof body?.error === 'string' ? body.error : 'Import failed')
+      }
+
+      window.localStorage.removeItem(onboardingDraftKey)
+      router.push('/dashboard')
+    } catch (importError) {
+      setError(importError instanceof Error ? importError.message : 'Import failed')
+    } finally {
+      setImporting(false)
+    }
   }
 
   const updateCompiledField = (
@@ -303,7 +336,31 @@ export default function OnboardingPage() {
       />
 
       <div className="grid lg:grid-cols-[1fr_360px] gap-6">
-        <section ref={questionCardRef} className="bg-surface border border-border rounded-card shadow-card p-5 sm:p-6">
+        <section ref={questionCardRef} className="space-y-4">
+          {isFirst && (
+            <div className="rounded-card border border-border bg-surface p-5 shadow-card sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="font-display text-xl font-bold text-foreground">Already used Raqet?</h2>
+                  <p className="mt-2 max-w-[58ch] text-sm leading-relaxed text-muted">
+                    Import a Raqet hosted or self-hosted JSON export instead of rebuilding your profile from scratch.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => importInputRef.current?.click()}
+                  disabled={importing}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-background disabled:opacity-50"
+                >
+                  {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  {importing ? 'Importing...' : 'Import JSON'}
+                </button>
+              </div>
+              <input ref={importInputRef} type="file" accept="application/json,.json" onChange={importData} className="hidden" />
+            </div>
+          )}
+
+          <div className="bg-surface border border-border rounded-card shadow-card p-5 sm:p-6">
           <div className="flex items-center justify-between gap-4 mb-4">
             <p className="text-xs font-medium tracking-label uppercase text-muted">
               Question {currentIndex + 1} of {playerInterviewQuestions.length}
@@ -372,6 +429,7 @@ export default function OnboardingPage() {
             </div>
           </div>
           {error && <p className="text-sm text-danger mt-3">{error}</p>}
+          </div>
         </section>
 
         <aside className="space-y-4">
