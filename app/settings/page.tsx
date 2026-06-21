@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { ChangeEvent, useEffect, useRef, useState } from 'react'
 import { AppShell } from '@/components/AppShell'
 import { PageHeader } from '@/components/PageHeader'
 import { AiActionLogCard } from '@/components/AiActionLog'
-import { UserCircle, FileText, Shield, Download, ChevronRight, Brain } from 'lucide-react'
+import { UserCircle, FileText, Shield, Download, ChevronRight, Brain, Loader2, Upload } from 'lucide-react'
 
 const settingsGroups = [
   {
@@ -23,7 +23,14 @@ const settingsGroups = [
   },
 ]
 
+type ImportResult = {
+  ok: true
+  counts: Array<{ name: string; value: number }>
+  skipped: Record<string, number>
+}
+
 export default function SettingsPage() {
+  const importInputRef = useRef<HTMLInputElement>(null)
   const [aiConfig, setAiConfig] = useState<{
     configured: boolean
     provider: string | null
@@ -31,10 +38,44 @@ export default function SettingsPage() {
     missingEnv: string[]
     supportsVideoAnalysis: boolean
   } | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [importStatus, setImportStatus] = useState('')
+  const [importError, setImportError] = useState('')
 
   useEffect(() => {
     fetch('/api/ai/config').then((response) => response.json()).then(setAiConfig).catch(() => null)
   }, [])
+
+  async function importData(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    const confirmed = window.confirm('Import this Raqet export into the local database? Existing records with the same IDs will be updated.')
+    if (!confirmed) return
+
+    setImporting(true)
+    setImportStatus('')
+    setImportError('')
+    try {
+      const data = JSON.parse(await file.text())
+      const response = await fetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!response.ok) {
+        const body = await response.json().catch(() => null)
+        throw new Error(typeof body?.error === 'string' ? body.error : 'Import failed')
+      }
+      const result = await response.json() as ImportResult
+      const imported = result.counts.filter((item) => item.value > 0).map((item) => `${item.value} ${item.name}`).join(', ')
+      setImportStatus(imported ? `Imported ${imported}.` : 'Import completed. No records were found in the file.')
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : 'Import failed')
+    } finally {
+      setImporting(false)
+    }
+  }
 
   return (
     <AppShell title="Settings" subtitle="Manage your local Raqet data and preferences">
@@ -66,6 +107,29 @@ export default function SettingsPage() {
             </div>
           </section>
         ))}
+
+        <section className="rounded-card border border-border bg-surface p-5 shadow-card">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="font-display text-lg font-bold text-foreground">Import Data</h2>
+              <p className="mt-1 text-sm leading-6 text-muted">
+                Bring in a Raqet hosted export or a self-hosted JSON export. Records are merged by ID.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => importInputRef.current?.click()}
+              disabled={importing}
+              className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-background disabled:opacity-50"
+            >
+              {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              Import JSON
+            </button>
+          </div>
+          <input ref={importInputRef} type="file" accept="application/json,.json" onChange={importData} className="hidden" />
+          {importStatus && <p className="mt-4 rounded-lg border border-border bg-background p-3 text-sm text-foreground">{importStatus}</p>}
+          {importError && <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{importError}</p>}
+        </section>
 
         <section className="rounded-card border border-border bg-surface p-5 shadow-card">
           <div className="flex items-start gap-3">

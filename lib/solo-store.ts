@@ -5,6 +5,8 @@ import { emptyPlayer } from '@/lib/player-defaults'
 
 import { DatabaseSync } from 'node:sqlite'
 
+type GenericRecord = { id: string; createdAt?: string; updatedAt?: string }
+
 export const soloUser = {
   id: 'solo',
   email: process.env.RAQET_SOLO_EMAIL || 'player@localhost',
@@ -152,7 +154,7 @@ export function saveSoloMemory(memory: Omit<MemoryItem, 'id' | 'createdAt' | 'up
     id: memory.id || crypto.randomUUID(),
     playerId: memory.playerId || soloUser.id,
     createdAt: memory.createdAt || timestamp,
-    updatedAt: timestamp,
+    updatedAt: memory.updatedAt || timestamp,
   } as MemoryItem)
 }
 
@@ -224,8 +226,34 @@ export function deleteSoloProject(id: string) {
   remove('project', id)
 }
 
+export function listSoloPatterns() {
+  return all<GenericRecord>('pattern').sort((a, b) => String(b.updatedAt ?? b.createdAt ?? '').localeCompare(String(a.updatedAt ?? a.createdAt ?? '')))
+}
+
+export function saveSoloPattern(pattern: GenericRecord) {
+  return save('pattern', pattern)
+}
+
+export function listSoloTrainingBlocks() {
+  return all<GenericRecord>('training_block').sort((a, b) => String(b.updatedAt ?? b.createdAt ?? '').localeCompare(String(a.updatedAt ?? a.createdAt ?? '')))
+}
+
+export function saveSoloTrainingBlock(block: GenericRecord) {
+  return save('training_block', block)
+}
+
+export function listSoloSessionTrainingBlocks() {
+  return all<GenericRecord>('session_training_block').sort((a, b) => String(b.updatedAt ?? b.createdAt ?? '').localeCompare(String(a.updatedAt ?? a.createdAt ?? '')))
+}
+
+export function saveSoloSessionTrainingBlock(link: GenericRecord) {
+  return save('session_training_block', link)
+}
+
 export function soloExport() {
   return {
+    schemaVersion: 1,
+    source: 'raqet-self-hosted',
     exportedAt: now(),
     user: { id: soloUser.id, email: soloUser.email },
     profile: loadSoloPlayer(),
@@ -237,5 +265,8 @@ export function soloExport() {
     coachMessages: listSoloCoachMessages(),
     ratingHistory: listSoloRatingHistory(),
     projects: listSoloProjects(),
+    patterns: listSoloPatterns(),
+    trainingBlocks: listSoloTrainingBlocks(),
+    sessionTrainingBlocks: listSoloSessionTrainingBlocks(),
   }
 }
