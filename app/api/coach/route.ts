@@ -41,7 +41,27 @@ export async function POST(request: Request) {
     return NextResponse.json(transientReply(message, 'Local coach chat is ready, but no AI API key is configured. Add a supported AI key to enable generated coaching replies.'))
   }
 
+  const recentSessions = listSoloSessions().slice(0, 12)
+  const recentTournamentMatches = listSoloTournamentMatches().slice(0, 12)
+  const matchSessions = recentSessions.filter((session) => session.type === 'match')
+  const doublesItems = [
+    ...matchSessions.filter((session) => session.matchType === 'doubles'),
+    ...recentTournamentMatches.filter((match) => match.matchType === 'doubles'),
+  ]
+  const singlesItems = [
+    ...matchSessions.filter((session) => session.matchType !== 'doubles'),
+    ...recentTournamentMatches.filter((match) => match.matchType !== 'doubles'),
+  ]
   const context = [
+    [
+      'Evidence ledger:',
+      `- Recent sessions supplied: ${recentSessions.length}`,
+      `- Recent match sessions supplied: ${matchSessions.length}`,
+      `- Recent tournament matches supplied: ${recentTournamentMatches.length}`,
+      `- Singles evidence items supplied: ${singlesItems.length}`,
+      `- Doubles evidence items supplied: ${doublesItems.length}`,
+      '- Calibrate confidence from these counts. Do not infer a stable pattern from one item.',
+    ].join('\n'),
     [
       `Name: ${player.name}`,
       `Profile summary: ${player.profileSummary || 'not set'}`,
@@ -52,9 +72,9 @@ export async function POST(request: Request) {
       player.profileMarkdown ? `Durable Player Profile:\n${player.profileMarkdown}` : '',
     ].filter(Boolean).join('\n'),
     compactList(listSoloMemories().filter((memory) => memory.status === 'confirmed').slice(0, 16), (memory) => `Memory: [${memory.category}] ${memory.content}`),
-    compactList(listSoloSessions().slice(0, 12), (session) => `Session: ${session.date} ${session.type} "${session.title}" ${session.result || ''} surface=${session.surface || 'n/a'} focus=${session.mainFocus || 'n/a'} takeaway=${session.mainTakeaway || session.aiSummary || 'n/a'} next=${session.nextFocus || 'n/a'}`),
+    compactList(recentSessions, (session) => `Session: ${session.date} ${session.type}/${session.matchType ?? 'n/a'} "${session.title}" ${session.result || ''} surface=${session.surface || 'n/a'} focus=${session.mainFocus || 'n/a'} takeaway=${session.mainTakeaway || session.aiSummary || 'n/a'} next=${session.nextFocus || 'n/a'}`),
     compactList(listSoloRatingHistory().slice(-12), (rating) => `Ranking: ${rating.eventDate} ${rating.label}=${rating.value} ${rating.lowerIsBetter ? '(lower is better)' : '(higher is better)'}`),
-    compactList(listSoloTournamentMatches().slice(0, 12), (match) => `Tournament match: ${match.date} ${match.round} vs ${match.opponentName || 'opponent'} result=${match.result} score=${match.score || 'n/a'} notes=${match.notes || 'n/a'}`),
+    compactList(recentTournamentMatches, (match) => `Tournament match: ${match.date} ${match.matchType ?? 'singles'} ${match.round} vs ${match.opponentName || 'opponent'} result=${match.result} score=${match.score || 'n/a'} notes=${match.notes || 'n/a'}`),
   ].filter(Boolean).join('\n\n').slice(0, 16000)
 
   const reply = await generateCoachReply(message, context)
