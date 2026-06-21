@@ -98,12 +98,21 @@ export default function OpponentsPage() {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const refreshOpponents = () => loadOpponents().then((loaded) => setOpponents(loaded ?? []))
+  const refreshOpponents = () => loadOpponents()
+    .then((loaded) => {
+      setOpponents(loaded ?? [])
+      setError('')
+    })
+    .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Opponents could not load.'))
 
   useEffect(() => {
     refreshOpponents()
-    loadSessions().then((loaded) => setSessions(loaded ?? []))
-    loadTournamentMatches().then((loaded) => setTournamentMatches(loaded ?? []))
+    loadSessions()
+      .then((loaded) => setSessions(loaded ?? []))
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Session history could not load.'))
+    loadTournamentMatches()
+      .then((loaded) => setTournamentMatches(loaded ?? []))
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Tournament matches could not load.'))
   }, [])
 
   const stats = useMemo(() => {

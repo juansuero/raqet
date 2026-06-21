@@ -282,6 +282,7 @@ export interface CoachMessage {
 export interface Pattern {
   id: string
   playerId: string
+  memoryId?: string
   title: string
   description: string
   category: 'tactical' | 'technical' | 'mental' | 'physical' | 'serve' | 'return' | 'movement' | 'decision_making'
@@ -290,9 +291,42 @@ export interface Pattern {
   trend: 'improving' | 'worsening' | 'stable' | 'new'
   lastSeen: string
   relatedSessionIds: string[]
+  relatedTournamentMatchIds?: string[]
   relatedClipIds: string[]
   recommendation: string
-  status: 'active' | 'monitoring' | 'resolved'
+  status: 'draft' | 'approved' | 'discarded'
+  evidenceSummary?: string
+  uncertainty?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface TrainingBlock {
+  id: string
+  playerId: string
+  patternId?: string
+  title: string
+  objective: string
+  category: 'tactical' | 'technical' | 'mental' | 'physical' | 'serve' | 'return' | 'movement' | 'matchplay'
+  priority: 'low' | 'medium' | 'high'
+  durationMinutes: number
+  instructions: string[]
+  successCriteria: string[]
+  evidenceSummary?: string
+  status: 'draft' | 'approved' | 'discarded'
+  source: 'ai' | 'manual'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SessionTrainingBlockLink {
+  id: string
+  sessionId: string
+  trainingBlockId: string
+  completionStatus: 'planned' | 'attempted' | 'completed' | 'missed'
+  successCriteriaNotes: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Drill {

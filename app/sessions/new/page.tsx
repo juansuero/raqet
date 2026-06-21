@@ -7,8 +7,8 @@ import { AppShell } from '@/components/AppShell'
 import { PageHeader } from '@/components/PageHeader'
 import { LoadingGenerationState } from '@/components/LoadingGenerationState'
 import { AIInsightBox } from '@/components/AIInsightBox'
-import { analyzeSessionVoice, createOpponent, createScheduledSession, createSession, loadGoogleCalendarConnection, loadOpponents, loadPlayer, loadSessions, maxAudioUploadBytes, updateScheduledSession, updateSession } from '@/lib/api'
-import { currentPlayer, type Opponent, type Player, type Session } from '@/lib/data'
+import { analyzeSessionVoice, createOpponent, createScheduledSession, createSession, loadGoogleCalendarConnection, loadOpponents, loadPlayer, loadSessionTrainingBlocks, loadSessions, loadTrainingBlocks, maxAudioUploadBytes, saveSessionTrainingBlocks, updateScheduledSession, updateSession } from '@/lib/api'
+import { currentPlayer, type Opponent, type Player, type Session, type SessionTrainingBlockLink, type TrainingBlock } from '@/lib/data'
 import type { MatchResult, MatchScore, ScoreSetMode } from '@/lib/match-score'
 import { formatMatchScore, legacyScoreToMatchScore, normalizeMatchScore } from '@/lib/match-score'
 
@@ -165,13 +165,17 @@ function NewSessionPageContent() {
   const chunksRef = useRef<Blob[]>([])
   const [loading, setLoading] = useState(false)
   const [voiceLoading, setVoiceLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [recording, setRecording] = useState(false)
   const [generated, setGenerated] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
   const [audioFile, setAudioFile] = useState<File | null>(null)
   const [voiceError, setVoiceError] = useState('')
+  const [saveError, setSaveError] = useState('')
   const [player, setPlayer] = useState<Player | null>(null)
   const [opponents, setOpponents] = useState<Opponent[]>([])
+  const [trainingBlocks, setTrainingBlocks] = useState<TrainingBlock[]>([])
+  const [blockLinks, setBlockLinks] = useState<Array<Pick<SessionTrainingBlockLink, 'trainingBlockId' | 'completionStatus' | 'successCriteriaNotes'>>>([])
   const [calendarConnected, setCalendarConnected] = useState(false)
   const [opponentSaving, setOpponentSaving] = useState(false)
   const [newOpponentName, setNewOpponentName] = useState('')
@@ -221,13 +225,32 @@ function NewSessionPageContent() {
   })
 
   useEffect(() => {
-    loadPlayer().then(setPlayer)
-    loadOpponents().then((loaded) => setOpponents(loaded ?? []))
-    loadGoogleCalendarConnection().then((loaded) => setCalendarConnected(Boolean(loaded?.connected)))
+    loadPlayer()
+      .then(setPlayer)
+      .catch((loadError) => setSaveError(loadError instanceof Error ? loadError.message : 'Player profile could not load.'))
+    loadOpponents()
+      .then((loaded) => setOpponents(loaded ?? []))
+      .catch((loadError) => setSaveError(loadError instanceof Error ? loadError.message : 'Opponents could not load.'))
+    loadTrainingBlocks()
+      .then((loaded) => setTrainingBlocks((loaded ?? []).filter((block) => block.status === 'approved')))
+      .catch((loadError) => setSaveError(loadError instanceof Error ? loadError.message : 'Training blocks could not load.'))
+    loadGoogleCalendarConnection()
+      .then((loaded) => setCalendarConnected(Boolean(loaded?.connected)))
+      .catch((loadError) => setSaveError(loadError instanceof Error ? loadError.message : 'Google Calendar status could not load.'))
+    loadSessionTrainingBlocks(editId || sessionId)
+      .then((loaded) => setBlockLinks((loaded ?? []).map((link) => ({
+        trainingBlockId: link.trainingBlockId,
+        completionStatus: link.completionStatus,
+        successCriteriaNotes: link.successCriteriaNotes,
+      }))))
+      .catch((loadError) => setSaveError(loadError instanceof Error ? loadError.message : 'Session training blocks could not load.'))
     if (!editId) return
     loadSessions().then((loaded) => {
       const session = (loaded ?? []).find((item) => item.id === editId)
-      if (!session) return
+      if (!session) {
+        setSaveError('Session not found.')
+        return
+      }
       setFormData({
         status: session.status || 'completed',
         type: session.type,
@@ -272,8 +295,8 @@ function NewSessionPageContent() {
           profileMemoryUpdate: session.profileMemoryUpdate || '',
         })
       }
-    })
-  }, [editId])
+    }).catch((loadError) => setSaveError(loadError instanceof Error ? loadError.message : 'Session could not load.'))
+  }, [editId, sessionId])
 
   useEffect(() => {
     if (formData.status !== 'planned' || !formData.scheduledStart || !formData.duration) return
@@ -364,7 +387,8 @@ function NewSessionPageContent() {
   }
 
   const buildSession = (): Session => {
-    const manualTags = formData.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
+    const isPlanned = formData.status === 'planned'
+    const manualTags = isPlanned ? [] : formData.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
     const isPracticeMatch = formData.type === 'match'
     const scoreData = isPracticeMatch ? scoreFromInputs(setScores) : undefined
 
@@ -398,30 +422,69 @@ function NewSessionPageContent() {
       energyAfter: parseInt(formData.energyAfter),
       confidence: parseInt(formData.confidence),
       mainFocus: formData.mainFocus,
-      rawNotes: formData.notes,
-      transcript: voiceDebrief?.transcript,
-      aiSummary: voiceDebrief?.summary,
-      whatWentWell: voiceDebrief?.whatWentWell,
-      whatWentWrong: voiceDebrief?.whatWentWrong,
-      mainTakeaway: voiceDebrief?.mainTakeaway,
-      nextFocus: voiceDebrief?.nextFocus,
-      profileMemoryUpdate: voiceDebrief?.profileMemoryUpdate,
+      rawNotes: isPlanned ? '' : formData.notes,
+      transcript: isPlanned ? undefined : voiceDebrief?.transcript,
+      aiSummary: isPlanned ? undefined : voiceDebrief?.summary,
+      whatWentWell: isPlanned ? undefined : voiceDebrief?.whatWentWell,
+      whatWentWrong: isPlanned ? undefined : voiceDebrief?.whatWentWrong,
+      mainTakeaway: isPlanned ? undefined : voiceDebrief?.mainTakeaway,
+      nextFocus: isPlanned ? undefined : voiceDebrief?.nextFocus,
+      profileMemoryUpdate: isPlanned ? undefined : voiceDebrief?.profileMemoryUpdate,
       tags: [...new Set([...manualTags, ...(voiceDebrief?.tags ?? [])])],
       createdAt: new Date().toISOString(),
     }
   }
 
+  const selectedTrainingBlocks = blockLinks
+    .map((link) => ({ link, block: trainingBlocks.find((block) => block.id === link.trainingBlockId) }))
+    .filter((item): item is { link: Pick<SessionTrainingBlockLink, 'trainingBlockId' | 'completionStatus' | 'successCriteriaNotes'>; block: TrainingBlock } => Boolean(item.block))
+
+  const toggleBlock = (blockId: string) => {
+    setBlockLinks((prev) => prev.some((link) => link.trainingBlockId === blockId)
+      ? prev.filter((link) => link.trainingBlockId !== blockId)
+      : [...prev, { trainingBlockId: blockId, completionStatus: isPlannedSession ? 'planned' : 'attempted', successCriteriaNotes: '' }])
+  }
+
+  const updateBlockLink = (blockId: string, patch: Partial<Pick<SessionTrainingBlockLink, 'completionStatus' | 'successCriteriaNotes'>>) => {
+    setBlockLinks((prev) => prev.map((link) => link.trainingBlockId === blockId ? { ...link, ...patch } : link))
+  }
+
+  const persistBlockLinks = async () => {
+    if (!sessionPersisted && blockLinks.length === 0) return
+    await saveSessionTrainingBlocks(sessionId, blockLinks)
+  }
+
   const handleSave = async () => {
     const isPlanned = formData.status === 'planned'
     const syncCalendar = isPlanned && formData.syncToGoogleCalendar === 'true'
-    if (sessionPersisted) {
-      const saved = isPlanned ? await updateScheduledSession(buildSession(), syncCalendar) : await updateSession(buildSession())
-      if (saved) setSessionPersisted(true)
-    } else {
-      const saved = isPlanned ? await createScheduledSession(buildSession(), syncCalendar) : await createSession(buildSession())
-      if (saved) setSessionPersisted(true)
+    if (isPlanned && !formData.scheduledStart) {
+      setSaveError('Add a start time before scheduling this session.')
+      return
     }
-    router.push('/sessions')
+    if (isPlanned && (!formData.duration || Number(formData.duration) <= 0)) {
+      setSaveError('Add a duration before scheduling this session.')
+      return
+    }
+
+    setSaving(true)
+    setSaveError('')
+    try {
+      let saved: Session | null = null
+      if (sessionPersisted) {
+        saved = isPlanned ? await updateScheduledSession(buildSession(), syncCalendar) : await updateSession(buildSession())
+        if (saved) setSessionPersisted(true)
+      } else {
+        saved = isPlanned ? await createScheduledSession(buildSession(), syncCalendar) : await createSession(buildSession())
+        if (saved) setSessionPersisted(true)
+      }
+      if (!saved) throw new Error(isPlanned ? 'Session schedule failed.' : 'Session save failed.')
+      await persistBlockLinks()
+      router.push(isPlanned ? '/schedule' : '/sessions')
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : isPlanned ? 'Session schedule failed.' : 'Session save failed.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const saveSessionDraft = async () => {
@@ -437,9 +500,9 @@ function NewSessionPageContent() {
     return saved
   }
 
-  const handleSaveAndAnalyze = () => {
+  const handleSaveAndAnalyze = async () => {
     if (!voiceDebrief) {
-      handleSave()
+      await handleSave()
       return
     }
     setLoading(true)
@@ -479,6 +542,13 @@ function NewSessionPageContent() {
       `Score: ${isPracticeMatch ? formatMatchScore(scoreFromInputs(setScores)) || 'not provided' : 'not applicable'}`,
       `Main focus: ${formData.mainFocus || 'not provided'}`,
       `Written notes: ${formData.notes || 'not provided'}`,
+      selectedTrainingBlocks.length > 0 ? `Selected training block context:\n${selectedTrainingBlocks.map(({ block, link }) => [
+        `Title: ${block.title}`,
+        `Objective: ${block.objective}`,
+        `Success criteria: ${block.successCriteria.join('; ') || 'not provided'}`,
+        `Completion status: ${link.completionStatus}`,
+        `Notes: ${link.successCriteriaNotes || 'not provided'}`,
+      ].join('\n')).join('\n\n')}` : 'Selected training block context: none',
     ].join('\n')
 
     try {
@@ -1014,6 +1084,47 @@ function NewSessionPageContent() {
             />
           </div>
 
+          <div className="mb-4 rounded-lg border border-border bg-background p-4">
+            <div className="mb-3">
+              <label className="block text-xs font-medium tracking-label uppercase text-muted">
+                {isPlannedSession ? 'Planned focus blocks' : 'Training blocks worked on'}
+              </label>
+              <p className="mt-1 text-xs leading-5 text-muted">
+                {isPlannedSession
+                  ? 'Optional. Pick the blocks you intend to work on. Mark what happened after the session.'
+                  : 'Optional. Select the blocks you worked on and record whether you completed them.'}
+              </p>
+            </div>
+            {trainingBlocks.length === 0 ? (
+              <p className="text-sm text-muted">No approved training blocks yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {trainingBlocks.map((block) => {
+                  const link = blockLinks.find((item) => item.trainingBlockId === block.id)
+                  return (
+                    <div key={block.id} className="rounded-lg border border-border bg-surface p-3">
+                      <label className="flex items-start gap-3">
+                        <input type="checkbox" checked={Boolean(link)} onChange={() => toggleBlock(block.id)} className="mt-1 h-4 w-4 rounded border-border text-accent" />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-foreground">{block.title}</span>
+                          <span className="mt-1 block text-xs leading-5 text-muted">{block.objective}</span>
+                        </span>
+                      </label>
+                      {link && !isPlannedSession && (
+                        <div className="mt-3 grid gap-3 sm:grid-cols-[180px_1fr]">
+                          <select value={link.completionStatus} onChange={(event) => updateBlockLink(block.id, { completionStatus: event.target.value as SessionTrainingBlockLink['completionStatus'] })} className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent">
+                            {['planned', 'attempted', 'completed', 'missed'].map((status) => <option key={status} value={status}>{status}</option>)}
+                          </select>
+                          <input value={link.successCriteriaNotes} onChange={(event) => updateBlockLink(block.id, { successCriteriaNotes: event.target.value })} placeholder="Success criteria notes" className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent" />
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           <div className="mb-4">
             <label className="block text-xs font-medium tracking-label uppercase text-muted mb-1.5">Notes</label>
             <textarea
@@ -1088,18 +1199,28 @@ function NewSessionPageContent() {
             />
           </div>
 
-          <div className="flex gap-3">
+          {saveError && (
+            <p className="mb-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+              {saveError}
+            </p>
+          )}
+
+          <div className="flex flex-col gap-3 sm:flex-row">
             <button
+              type="button"
               onClick={handleSaveAndAnalyze}
-              className="flex-1 px-4 py-2.5 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors"
+              disabled={saving || voiceLoading}
+              className="flex-1 px-4 py-2.5 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-60"
             >
-              {isPlannedSession ? 'Schedule Session' : voiceDebrief ? 'Review & Save Debrief' : editId ? 'Save Changes' : 'Save Session'}
+              {saving ? isPlannedSession ? 'Scheduling...' : 'Saving...' : isPlannedSession ? 'Schedule Session' : voiceDebrief ? 'Review & Save Debrief' : editId ? 'Save Changes' : 'Save Session'}
             </button>
             <button
+              type="button"
               onClick={handleSave}
-              className="px-4 py-2.5 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-background transition-colors"
+              disabled={saving || voiceLoading}
+              className="px-4 py-2.5 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-background transition-colors disabled:opacity-60"
             >
-              Save Draft
+              {saving ? 'Saving...' : 'Save Draft'}
             </button>
           </div>
         </div>

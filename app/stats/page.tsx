@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AppShell } from '@/components/AppShell'
 import { PageHeader } from '@/components/PageHeader'
-import { StatCard } from '@/components/StatCard'
+import { StatCard, StatCardSkeleton } from '@/components/StatCard'
 import { createRatingHistoryEntry, loadRatingHistory, loadSessions, loadTournamentMatches, loadTournaments } from '@/lib/api'
 import type { RatingHistoryEntry, RatingMetricType, Session, Tournament, TournamentMatch } from '@/lib/data'
-import { legacyScoreToMatchScore, scoreLabel } from '@/lib/match-score'
+import { legacyScoreToMatchScore, normalizeMatchScore, scoreLabel } from '@/lib/match-score'
 import { BarChart3, Plus, Target, Trophy, Waves } from 'lucide-react'
 
 const metricOptions: { value: RatingMetricType; label: string; lowerIsBetter: boolean }[] = [
@@ -22,6 +22,11 @@ function matchOutcome(session: Session) {
   if (/\b(won|win|victory)\b/.test(result)) return 'won'
   if (/\b(lost|loss|defeat)\b/.test(result)) return 'lost'
   if (/\b(unfinished|not finished)\b/.test(result)) return 'unfinished'
+  const sets = normalizeMatchScore(session.scoreData ?? legacyScoreToMatchScore(session.score)).sets
+  const setWins = sets.filter((set) => Number(set.playerGames ?? 0) > Number(set.opponentGames ?? 0)).length
+  const setLosses = sets.filter((set) => Number(set.opponentGames ?? 0) > Number(set.playerGames ?? 0)).length
+  if (setWins > setLosses) return 'won'
+  if (setLosses > setWins) return 'lost'
   return 'unknown'
 }
 
@@ -105,6 +110,7 @@ export default function StatsPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [tournamentMatches, setTournamentMatches] = useState<TournamentMatch[]>([])
   const [ratings, setRatings] = useState<RatingHistoryEntry[]>([])
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [form, setForm] = useState({
@@ -116,10 +122,16 @@ export default function StatsPage() {
   })
 
   useEffect(() => {
-    loadSessions().then((loaded) => setSessions(loaded ?? []))
-    loadTournaments().then((loaded) => setTournaments(loaded ?? []))
-    loadTournamentMatches().then((loaded) => setTournamentMatches(loaded ?? []))
-    loadRatingHistory().then((loaded) => setRatings(loaded ?? []))
+    Promise.all([loadSessions(), loadTournaments(), loadTournamentMatches(), loadRatingHistory()])
+      .then(([loadedSessions, loadedTournaments, loadedTournamentMatches, loadedRatings]) => {
+        setSessions(loadedSessions ?? [])
+        setTournaments(loadedTournaments ?? [])
+        setTournamentMatches(loadedTournamentMatches ?? [])
+        setRatings(loadedRatings ?? [])
+        setError('')
+      })
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Stats could not load.'))
+      .finally(() => setLoading(false))
   }, [])
 
   const practiceMatches = sessions.filter((session) => session.type === 'match')
@@ -174,12 +186,28 @@ export default function StatsPage() {
     <AppShell title="Stats" subtitle="Match record, surfaces, ratings, and rankings">
       <PageHeader title="Stats" subtitle="Track your tennis activity and ranking progress." />
 
+      {error && !loading && (
+        <p className="mb-4 rounded-lg border border-danger/20 bg-danger/5 p-3 text-sm text-danger">{error}</p>
+      )}
+
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <StatCard title="Sessions" value={sessions.length} subtitle="total" icon={<BarChart3 className="h-4 w-4" />} />
-        <StatCard title="Practice Record" value={`${practiceWins}-${practiceLosses}-${practiceUnfinished}`} subtitle={`${practiceMatches.length} practice matches - ${formatPercent(practiceWinRate)}`} icon={<Target className="h-4 w-4" />} />
-        <StatCard title="Tournament Record" value={`${tournamentWins}-${tournamentLosses}-${tournamentUnfinished}`} subtitle={`${tournamentMatches.length} tournament matches - ${formatPercent(tournamentWinRate)}`} icon={<Trophy className="h-4 w-4" />} />
-        <StatCard title="Overall Record" value={`${totalWins}-${totalLosses}-${totalUnfinished}`} subtitle={`${formatPercent(winRate)} win rate`} icon={<Target className="h-4 w-4" />} />
-        <StatCard title="Surfaces" value={surfaces.length} subtitle="played" icon={<Waves className="h-4 w-4" />} />
+        {loading ? (
+          <>
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+          </>
+        ) : (
+          <>
+            <StatCard title="Sessions" value={sessions.length} subtitle="total" icon={<BarChart3 className="h-4 w-4" />} />
+            <StatCard title="Practice Record" value={`${practiceWins}-${practiceLosses}-${practiceUnfinished}`} subtitle={`${practiceMatches.length} practice matches - ${formatPercent(practiceWinRate)}`} icon={<Target className="h-4 w-4" />} />
+            <StatCard title="Tournament Record" value={`${tournamentWins}-${tournamentLosses}-${tournamentUnfinished}`} subtitle={`${tournamentMatches.length} tournament matches - ${formatPercent(tournamentWinRate)}`} icon={<Trophy className="h-4 w-4" />} />
+            <StatCard title="Overall Record" value={`${totalWins}-${totalLosses}-${totalUnfinished}`} subtitle={`${formatPercent(winRate)} win rate`} icon={<Target className="h-4 w-4" />} />
+            <StatCard title="Surfaces" value={surfaces.length} subtitle="played" icon={<Waves className="h-4 w-4" />} />
+          </>
+        )}
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
@@ -187,7 +215,13 @@ export default function StatsPage() {
           <div className="rounded-card border border-border bg-surface p-5 shadow-card">
             <h2 className="font-display text-lg font-bold text-foreground">Session Breakdown</h2>
             <div className="mt-4 space-y-3">
-              {surfaces.length === 0 ? (
+              {loading ? (
+                <div className="space-y-3">
+                  <div className="h-4 w-full animate-pulse rounded bg-border" />
+                  <div className="h-4 w-5/6 animate-pulse rounded bg-border" />
+                  <div className="h-4 w-2/3 animate-pulse rounded bg-border" />
+                </div>
+              ) : surfaces.length === 0 ? (
                 <p className="text-sm text-muted">Log sessions to see surface distribution.</p>
               ) : (
                 surfaces.map(([surface, count]) => (
@@ -208,7 +242,16 @@ export default function StatsPage() {
           <div className="rounded-card border border-border bg-surface p-5 shadow-card">
             <h2 className="font-display text-lg font-bold text-foreground">Tournament Matches</h2>
             <div className="mt-4 space-y-3">
-              {tournamentMatches.length === 0 ? (
+              {loading ? (
+                <div className="space-y-3">
+                  {[0, 1, 2].map((item) => (
+                    <div key={item} className="animate-pulse rounded-lg border border-border bg-background p-3">
+                      <div className="h-4 w-40 rounded bg-border" />
+                      <div className="mt-3 h-3 w-64 max-w-full rounded bg-border" />
+                    </div>
+                  ))}
+                </div>
+              ) : tournamentMatches.length === 0 ? (
                 <p className="text-sm text-muted">Add tournament matches to see opponent-level and tournament-record context here.</p>
               ) : (
                 tournamentMatches.slice(0, 8).map((match) => (
@@ -231,9 +274,19 @@ export default function StatsPage() {
           <div>
             <div className="mb-4 flex items-center justify-between gap-4">
               <h2 className="font-display text-xl font-bold text-foreground">Rating Progress</h2>
-              <p className="text-sm text-muted">{ratings.length} entries</p>
+              {!loading && <p className="text-sm text-muted">{ratings.length} entries</p>}
             </div>
-            {ratings.length === 0 ? (
+            {loading ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {[0, 1].map((item) => (
+                  <div key={item} className="animate-pulse rounded-card border border-border bg-surface p-5 shadow-card">
+                    <div className="h-5 w-32 rounded bg-border" />
+                    <div className="mt-3 h-4 w-24 rounded bg-border" />
+                    <div className="mt-5 h-32 rounded bg-border" />
+                  </div>
+                ))}
+              </div>
+            ) : ratings.length === 0 ? (
               <div className="rounded-card border border-border bg-surface p-6 shadow-card">
                 <p className="text-sm text-muted">
                   Add UTR, WTN, or custom ranking entries to start seeing progress over time.

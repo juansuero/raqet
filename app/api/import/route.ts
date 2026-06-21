@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import type { Clip, CoachMessage, MemoryItem, Opponent, Player, Project, RatingHistoryEntry, Session, Tournament, TournamentMatch } from '@/lib/data'
+import type { Clip, CoachMessage, MemoryItem, Opponent, Pattern, Player, Project, RatingHistoryEntry, Session, SessionTrainingBlockLink, Tournament, TournamentMatch, TrainingBlock } from '@/lib/data'
 import {
   saveSoloCoachMessage,
   saveSoloMemory,
@@ -84,12 +84,57 @@ function normalizeClip(item: ImportRecord): Clip {
   } as Clip
 }
 
-function normalizeGeneric(item: ImportRecord) {
+function normalizePattern(item: ImportRecord): Pattern {
   return {
     ...withSoloPlayer(item),
     id: item.id || crypto.randomUUID(),
+    memoryId: item.memoryId,
+    title: item.title || 'Imported pattern',
+    description: item.description || '',
+    category: item.category || 'tactical',
+    evidenceCount: Number(item.evidenceCount || 0),
+    confidence: item.confidence || 'low',
+    trend: item.trend || 'new',
+    lastSeen: item.lastSeen || new Date().toISOString().slice(0, 10),
+    relatedSessionIds: Array.isArray(item.relatedSessionIds) ? item.relatedSessionIds : [],
+    relatedTournamentMatchIds: Array.isArray(item.relatedTournamentMatchIds) ? item.relatedTournamentMatchIds : [],
+    relatedClipIds: Array.isArray(item.relatedClipIds) ? item.relatedClipIds : [],
+    recommendation: item.recommendation || '',
+    status: item.status === 'active' || item.status === 'monitoring' ? 'approved' : item.status === 'resolved' ? 'discarded' : item.status || 'draft',
     createdAt: item.createdAt || new Date().toISOString(),
-  }
+    updatedAt: item.updatedAt || new Date().toISOString(),
+  } as Pattern
+}
+
+function normalizeTrainingBlock(item: ImportRecord): TrainingBlock {
+  return {
+    ...withSoloPlayer(item),
+    id: item.id || crypto.randomUUID(),
+    title: item.title || 'Imported training block',
+    objective: item.objective || '',
+    category: item.category || 'tactical',
+    priority: item.priority || 'medium',
+    durationMinutes: Number(item.durationMinutes || 30),
+    instructions: Array.isArray(item.instructions) ? item.instructions : [],
+    successCriteria: Array.isArray(item.successCriteria) ? item.successCriteria : [],
+    evidenceSummary: item.evidenceSummary || '',
+    status: item.status || 'draft',
+    source: item.source || 'manual',
+    createdAt: item.createdAt || new Date().toISOString(),
+    updatedAt: item.updatedAt || new Date().toISOString(),
+  } as TrainingBlock
+}
+
+function normalizeSessionTrainingBlock(item: ImportRecord): SessionTrainingBlockLink {
+  return {
+    id: item.id || crypto.randomUUID(),
+    sessionId: item.sessionId || '',
+    trainingBlockId: item.trainingBlockId || '',
+    completionStatus: item.completionStatus || 'planned',
+    successCriteriaNotes: item.successCriteriaNotes || '',
+    createdAt: item.createdAt || new Date().toISOString(),
+    updatedAt: item.updatedAt || new Date().toISOString(),
+  } as SessionTrainingBlockLink
 }
 
 export async function POST(request: Request) {
@@ -130,13 +175,13 @@ export async function POST(request: Request) {
     clips.forEach((item) => saveLocalClip(normalizeClip(item)))
 
     const patterns = arrayOfRecords((body as { patterns?: unknown }).patterns)
-    patterns.forEach((item) => saveSoloPattern(normalizeGeneric(item)))
+    patterns.forEach((item) => saveSoloPattern(normalizePattern(item)))
 
     const trainingBlocks = arrayOfRecords((body as { trainingBlocks?: unknown }).trainingBlocks)
-    trainingBlocks.forEach((item) => saveSoloTrainingBlock(normalizeGeneric(item)))
+    trainingBlocks.forEach((item) => saveSoloTrainingBlock(normalizeTrainingBlock(item)))
 
     const sessionTrainingBlocks = arrayOfRecords((body as { sessionTrainingBlocks?: unknown }).sessionTrainingBlocks)
-    sessionTrainingBlocks.forEach((item) => saveSoloSessionTrainingBlock(normalizeGeneric(item)))
+    sessionTrainingBlocks.forEach((item) => saveSoloSessionTrainingBlock(normalizeSessionTrainingBlock(item)))
 
     return NextResponse.json({
       ok: true,

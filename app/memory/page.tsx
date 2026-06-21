@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react'
 import { AppShell } from '@/components/AppShell'
 import { PageHeader } from '@/components/PageHeader'
-import { currentPlayer, memoryItems } from '@/lib/data'
-import { loadMemories, loadPlayer, updateMemoryStatus } from '@/lib/api'
-import { CheckCircle, XCircle, Archive } from 'lucide-react'
+import { currentPlayer, memoryItems, type MemoryItem } from '@/lib/data'
+import { loadMemories, loadPlayer, updateMemoryItem, updateMemoryStatus } from '@/lib/api'
+import { CheckCircle, XCircle, Archive, Save } from 'lucide-react'
 
 type MemoryStatus = 'confirmed' | 'pending' | 'archived' | 'incorrect'
 
@@ -13,19 +13,46 @@ export default function MemoryPage() {
   const [items, setItems] = useState(memoryItems)
   const [player, setPlayer] = useState(currentPlayer)
   const [filter, setFilter] = useState<'all' | 'tactical' | 'technical' | 'mental' | 'physical' | 'preference'>('all')
+  const [editing, setEditing] = useState<Record<string, string>>({})
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    loadMemories().then((loaded) => setItems(loaded ?? []))
-    loadPlayer().then((loaded) => {
-      if (loaded) setPlayer(loaded)
-    })
+    Promise.all([loadMemories(), loadPlayer()])
+      .then(([loadedMemories, loadedPlayer]) => {
+        setItems(loadedMemories ?? [])
+        if (loadedPlayer) setPlayer(loadedPlayer)
+        setError('')
+      })
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Player memory could not load.'))
   }, [])
 
   const handleStatusChange = async (id: string, status: MemoryStatus) => {
-    await updateMemoryStatus(id, status)
-    setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, status } : item))
-    )
+    setError('')
+    try {
+      const saved = await updateMemoryStatus(id, status)
+      if (!saved) throw new Error('Memory update failed.')
+      setItems((prev) => prev.map((item) => (item.id === id ? saved : item)))
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Memory update failed.')
+    }
+  }
+
+  const handleContentSave = async (item: MemoryItem) => {
+    const content = (editing[item.id] ?? item.content).trim()
+    if (!content) return
+    setError('')
+    try {
+      const saved = await updateMemoryItem({ id: item.id, content })
+      if (!saved) throw new Error('Memory update failed.')
+      setItems((prev) => prev.map((memory) => (memory.id === item.id ? saved : memory)))
+      setEditing((prev) => {
+        const next = { ...prev }
+        delete next[item.id]
+        return next
+      })
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Memory update failed.')
+    }
   }
 
   const filtered = filter === 'all' ? items : items.filter((i) => i.category === filter)
@@ -47,6 +74,7 @@ export default function MemoryPage() {
           AI suggestions are reviewable notes, not facts. Confirm only the memories that accurately describe your game, preferences, recovery, or training context.
         </p>
       </div>
+      {error && <p className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">{error}</p>}
 
       {/* Identity Summary */}
       <div className="readable-panel bg-surface border border-border rounded-card shadow-card p-5 mb-6">
@@ -119,7 +147,13 @@ export default function MemoryPage() {
                     {item.status}
                   </span>
                 </div>
-                <p className="max-w-[54ch] text-sm text-foreground leading-relaxed">{item.content}</p>
+                <textarea
+                  value={editing[item.id] ?? item.content}
+                  onChange={(event) => setEditing((prev) => ({ ...prev, [item.id]: event.target.value }))}
+                  rows={3}
+                  className="w-full max-w-[54ch] rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-accent disabled:opacity-70"
+                  disabled={item.status === 'incorrect'}
+                />
                 <p className="text-xs text-muted mt-2">Last updated: {item.updatedAt.split('T')[0]}</p>
               </div>
             </div>
@@ -142,7 +176,15 @@ export default function MemoryPage() {
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted hover:bg-background transition-colors"
                 >
                   <XCircle className="w-3 h-3" />
-                  Incorrect
+                  Discard
+                </button>
+                <button
+                  onClick={() => handleContentSave(item)}
+                  disabled={(editing[item.id] ?? item.content).trim() === item.content}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted hover:bg-background transition-colors disabled:opacity-50"
+                >
+                  <Save className="w-3 h-3" />
+                  Save edit
                 </button>
                 <button
                   onClick={() => handleStatusChange(item.id, 'archived')}

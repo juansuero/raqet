@@ -10,9 +10,15 @@ import { CalendarDays, CheckCircle2, Plus } from 'lucide-react'
 
 export default function SchedulePage() {
   const [sessions, setSessions] = useState<Session[]>([])
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    loadSessions().then((loaded) => setSessions(loaded ?? []))
+    loadSessions()
+      .then((loaded) => {
+        setSessions(loaded ?? [])
+        setError('')
+      })
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Schedule could not load.'))
   }, [])
 
   const planned = useMemo(() => sessions
@@ -33,7 +39,9 @@ export default function SchedulePage() {
         }
       />
 
-      {planned.length === 0 ? (
+      {error ? (
+        <div className="rounded-card border border-danger/30 bg-danger/10 p-5 text-sm text-danger shadow-card">{error}</div>
+      ) : planned.length === 0 ? (
         <div className="rounded-card border border-border bg-surface p-6 text-center shadow-card">
           <CalendarDays className="mx-auto h-8 w-8 text-muted" />
           <p className="mt-3 text-sm text-muted">No planned sessions yet.</p>

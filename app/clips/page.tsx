@@ -307,7 +307,7 @@ export default function ClipsPage() {
 
   useEffect(() => {
     resetClipWorkspace()
-    refresh()
+    refresh().catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Clip workspace could not load.'))
   }, [selectedProjectId])
 
   useEffect(() => {
@@ -1230,7 +1230,7 @@ export default function ClipsPage() {
             <select
               value={selectedProjectId}
               onChange={(event) => chooseProject(event.target.value)}
-              className="h-11 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground"
+              className="h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground"
             >
               <option value="">All projects ({projectStats.all?.clips ?? clips.length} clips)</option>
               {projects.map((project) => {
@@ -1261,7 +1261,7 @@ export default function ClipsPage() {
         </div>
         {showNewProject && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <input value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} placeholder="Project name..." className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm sm:w-64" />
+            <input value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} placeholder="Project name..." className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-sm sm:w-64" />
             <button type="button" onClick={handleCreateProject} disabled={busy || !newProjectName.trim()} className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-50">Create</button>
             <button type="button" onClick={() => { setShowNewProject(false); setNewProjectName('') }} className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-muted">Cancel</button>
           </div>
@@ -1439,11 +1439,11 @@ export default function ClipsPage() {
                 <h2 className="font-display text-xl font-bold text-foreground">Review candidates before saving</h2>
                 <p className="mt-1 text-sm leading-6 text-muted">Runs local ffmpeg in the background. Default scans the next 5 minutes from the current playhead.</p>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex w-full min-w-0 flex-wrap gap-2 sm:w-auto">
                 <select
                   value={pointScanMode}
                   onChange={(event) => setPointScanMode(event.target.value as PointScanMode)}
-                  className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground"
+                  className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground sm:flex-none"
                   aria-label="Point scan range"
                 >
                   <option value="next5">Next 5 min</option>
@@ -1451,7 +1451,7 @@ export default function ClipsPage() {
                   <option value="selected">Selected range</option>
                   <option value="full">Full video</option>
                 </select>
-                <button type="button" onClick={findPointsInSelectedVideo} disabled={busy || !selectedVideo} className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                <button type="button" onClick={findPointsInSelectedVideo} disabled={busy || !selectedVideo} className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50 sm:flex-none">
                   <Sparkles className="h-4 w-4" />
                   {busyLabel.startsWith('Starting background') ? 'Starting...' : 'Start scan'}
                 </button>
@@ -1501,7 +1501,7 @@ export default function ClipsPage() {
                   <p className="mt-1 text-sm text-muted">{selectedHighlightClips.length} selected for highlight, exported top to bottom</p>
                 )}
               </div>
-              <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+              <div className="flex w-full min-w-0 flex-wrap gap-2 sm:w-auto">
                 <button type="button" onClick={() => setHighlightClipIds(selectedVideoClipIds)} disabled={busy || selectedVideoClips.length === 0} className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-50">
                   Select all
                 </button>
@@ -1516,33 +1516,33 @@ export default function ClipsPage() {
               </div>
             </div>
             <div className="mt-4 grid gap-3 border-t border-border pt-4 md:grid-cols-4">
-              <label className="grid gap-1 text-xs font-bold uppercase tracking-label text-muted">
+              <label className="grid min-w-0 gap-1 text-xs font-bold uppercase tracking-label text-muted">
                 Quality
-                <select value={highlightQuality} onChange={(event) => setHighlightQuality(event.target.value as HighlightQuality)} className="rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium normal-case tracking-normal text-foreground">
+                <select value={highlightQuality} onChange={(event) => setHighlightQuality(event.target.value as HighlightQuality)} className="w-full min-w-0 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium normal-case tracking-normal text-foreground">
                   <option value="draft">Smaller</option>
                   <option value="standard">Balanced</option>
                   <option value="high">High</option>
                 </select>
               </label>
-              <label className="grid gap-1 text-xs font-bold uppercase tracking-label text-muted">
+              <label className="grid min-w-0 gap-1 text-xs font-bold uppercase tracking-label text-muted">
                 Resolution
-                <select value={highlightResolution} onChange={(event) => setHighlightResolution(event.target.value as HighlightResolution)} className="rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium normal-case tracking-normal text-foreground">
+                <select value={highlightResolution} onChange={(event) => setHighlightResolution(event.target.value as HighlightResolution)} className="w-full min-w-0 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium normal-case tracking-normal text-foreground">
                   <option value="720">720p</option>
                   <option value="1080">1080p</option>
                   <option value="source">Source</option>
                 </select>
               </label>
-              <label className="grid gap-1 text-xs font-bold uppercase tracking-label text-muted">
+              <label className="grid min-w-0 gap-1 text-xs font-bold uppercase tracking-label text-muted">
                 FPS
-                <select value={highlightFps} onChange={(event) => setHighlightFps(event.target.value as HighlightFps)} className="rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium normal-case tracking-normal text-foreground">
+                <select value={highlightFps} onChange={(event) => setHighlightFps(event.target.value as HighlightFps)} className="w-full min-w-0 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium normal-case tracking-normal text-foreground">
                   <option value="source">Source</option>
                   <option value="30">30 fps</option>
                   <option value="60">60 fps</option>
                 </select>
               </label>
-              <label className="flex items-end gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground">
+              <label className="flex min-w-0 items-end gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground">
                 <input type="checkbox" checked={highlightFade} onChange={(event) => setHighlightFade(event.target.checked)} className="mb-1 h-4 w-4 rounded border-border accent-accent" />
-                Fade transitions
+                <span className="min-w-0">Fade transitions</span>
               </label>
             </div>
             {selectedHighlightClips.length > 0 && (
@@ -1614,7 +1614,7 @@ export default function ClipsPage() {
                           value={index}
                           onChange={(event) => moveHighlightClipToIndex(clip.id, Number(event.target.value))}
                           disabled={busy}
-                          className="h-8 rounded border border-border bg-surface px-2 text-xs font-semibold text-foreground disabled:opacity-50"
+                          className="h-8 min-w-0 rounded border border-border bg-surface px-2 text-xs font-semibold text-foreground disabled:opacity-50"
                           aria-label={`Set position for ${clip.title}`}
                         >
                           {selectedHighlightClips.map((positionClip, positionIndex) => (
@@ -1725,27 +1725,27 @@ export default function ClipsPage() {
                           value={candidate.title}
                           onChange={(event) => updateCandidate(candidate.id, { title: event.target.value })}
                           aria-label="Candidate title"
-                          className="w-full rounded-lg border border-border bg-surface px-3 py-2 font-display text-sm font-bold text-foreground"
+                          className="w-full min-w-0 rounded-lg border border-border bg-surface px-3 py-2 font-display text-sm font-bold text-foreground"
                         />
                         <p className="mt-2 text-xs leading-5 text-muted">{formatMs(candidate.startMs)} - {formatMs(candidate.endMs)} - {Math.round(candidate.confidence * 100)}% confidence</p>
                       </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <button type="button" onClick={() => previewCandidate(candidate)} className="inline-flex items-center justify-center gap-1 rounded-lg border border-border px-2 py-2 text-xs font-medium text-foreground hover:bg-surface-muted">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        <button type="button" onClick={() => previewCandidate(candidate)} className="inline-flex min-w-0 items-center justify-center gap-1 rounded-lg border border-border px-2 py-2 text-xs font-medium text-foreground hover:bg-surface-muted">
                           <Play className="h-3.5 w-3.5" />
                           Preview
                         </button>
-                        <button type="button" onClick={() => acceptCandidate(candidate)} disabled={busy} className="inline-flex items-center justify-center gap-1 rounded-lg bg-accent px-2 py-2 text-xs font-medium text-white disabled:opacity-50">
+                        <button type="button" onClick={() => acceptCandidate(candidate)} disabled={busy} className="inline-flex min-w-0 items-center justify-center gap-1 rounded-lg bg-accent px-2 py-2 text-xs font-medium text-white disabled:opacity-50">
                           <Check className="h-3.5 w-3.5" />
                           Save
                         </button>
-                        <button type="button" onClick={() => { setPointCandidates((prev) => prev.filter((item) => item.id !== candidate.id)); if (activeCandidateId === candidate.id) setActiveCandidateId('') }} disabled={busy} className="inline-flex items-center justify-center gap-1 rounded-lg border border-danger/30 px-2 py-2 text-xs font-medium text-danger hover:bg-danger/10 disabled:opacity-50">
+                        <button type="button" onClick={() => { setPointCandidates((prev) => prev.filter((item) => item.id !== candidate.id)); if (activeCandidateId === candidate.id) setActiveCandidateId('') }} disabled={busy} className="inline-flex min-w-0 items-center justify-center gap-1 rounded-lg border border-danger/30 px-2 py-2 text-xs font-medium text-danger hover:bg-danger/10 disabled:opacity-50">
                           <X className="h-3.5 w-3.5" />
                           Reject
                         </button>
                       </div>
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <label className="grid gap-1 text-xs font-bold uppercase tracking-label text-muted">
+                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <label className="grid min-w-0 gap-1 text-xs font-bold uppercase tracking-label text-muted">
                         Start
                         <input
                           value={friendlyInputTime(candidate.startMs)}
@@ -1759,10 +1759,10 @@ export default function ClipsPage() {
                               }
                             }
                           }}
-                          className="h-9 rounded-lg border border-border bg-surface px-2 text-sm normal-case tracking-normal"
+                          className="h-9 w-full min-w-0 rounded-lg border border-border bg-surface px-2 text-sm normal-case tracking-normal"
                         />
                       </label>
-                      <label className="grid gap-1 text-xs font-bold uppercase tracking-label text-muted">
+                      <label className="grid min-w-0 gap-1 text-xs font-bold uppercase tracking-label text-muted">
                         End
                         <input
                           value={friendlyInputTime(candidate.endMs)}
@@ -1776,7 +1776,7 @@ export default function ClipsPage() {
                               }
                             }
                           }}
-                          className="h-9 rounded-lg border border-border bg-surface px-2 text-sm normal-case tracking-normal"
+                          className="h-9 w-full min-w-0 rounded-lg border border-border bg-surface px-2 text-sm normal-case tracking-normal"
                         />
                       </label>
                     </div>
@@ -1795,57 +1795,57 @@ export default function ClipsPage() {
             <div className="mt-4 grid gap-3">
               <label className="grid gap-1 text-xs font-bold uppercase tracking-label text-muted">
                 Title
-                <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Backhand under pressure" className="rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal" />
+                <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Backhand under pressure" className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal" />
               </label>
-              <div className="grid grid-cols-2 gap-3">
-                <label className="grid gap-1 text-xs font-bold uppercase tracking-label text-muted">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="grid min-w-0 gap-1 text-xs font-bold uppercase tracking-label text-muted">
                   Start
-                  <input value={startInput} onChange={(event) => updateStartFromInput(event.target.value)} placeholder="12.4" className="rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal" />
+                  <input value={startInput} onChange={(event) => updateStartFromInput(event.target.value)} placeholder="12.4" className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal" />
                 </label>
-                <label className="grid gap-1 text-xs font-bold uppercase tracking-label text-muted">
+                <label className="grid min-w-0 gap-1 text-xs font-bold uppercase tracking-label text-muted">
                   End
-                  <input value={endInput} onChange={(event) => updateEndFromInput(event.target.value)} placeholder="19.8" className="rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal" />
+                  <input value={endInput} onChange={(event) => updateEndFromInput(event.target.value)} placeholder="19.8" className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal" />
                 </label>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <label className="grid gap-1 text-xs font-bold uppercase tracking-label text-muted">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="grid min-w-0 gap-1 text-xs font-bold uppercase tracking-label text-muted">
                   Result
-                  <select value={pointResult} onChange={(event) => setPointResult(event.target.value as Clip['pointResult'])} className="rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal">
+                  <select value={pointResult} onChange={(event) => setPointResult(event.target.value as Clip['pointResult'])} className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal">
                     <option value="unknown">Unknown</option>
                     <option value="won">Won</option>
                     <option value="lost">Lost</option>
                   </select>
                 </label>
-                <label className="grid gap-1 text-xs font-bold uppercase tracking-label text-muted">
+                <label className="grid min-w-0 gap-1 text-xs font-bold uppercase tracking-label text-muted">
                   Context
-                  <select value={shotContext} onChange={(event) => setShotContext(event.target.value as ShotContext)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal">
+                  <select value={shotContext} onChange={(event) => setShotContext(event.target.value as ShotContext)} className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal">
                     {shotContexts.map((context) => <option key={context} value={context}>{label(context)}</option>)}
                   </select>
                 </label>
               </div>
               <label className="grid gap-1 text-xs font-bold uppercase tracking-label text-muted">
                 Ending
-                <select value={pointEnding} onChange={(event) => setPointEnding(event.target.value as PointEnding)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal">
+                <select value={pointEnding} onChange={(event) => setPointEnding(event.target.value as PointEnding)} className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal">
                   {pointEndings.map((ending) => <option key={ending} value={ending}>{label(ending)}</option>)}
                 </select>
               </label>
               <label className="grid gap-1 text-xs font-bold uppercase tracking-label text-muted">
                 Score / situation
-                <input value={scoreContext} onChange={(event) => setScoreContext(event.target.value)} placeholder="30-30, break point, tiebreak..." className="rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal" />
+                <input value={scoreContext} onChange={(event) => setScoreContext(event.target.value)} placeholder="30-30, break point, tiebreak..." className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal" />
               </label>
               <label className="grid gap-1 text-xs font-bold uppercase tracking-label text-muted">
                 Notes
-                <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="What happened in this point?" rows={4} className="rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal" />
+                <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="What happened in this point?" rows={4} className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal" />
               </label>
               <label className="grid gap-1 text-xs font-bold uppercase tracking-label text-muted">
                 Tags
-                <input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="return, pressure, forehand" className="rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal" />
+                <input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="return, pressure, forehand" className="w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-sm normal-case tracking-normal" />
               </label>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {pointPresets.map((preset) => (
-                <button key={preset.label} type="button" onClick={() => applyPreset(preset)} className="rounded-lg border border-border bg-background px-3 py-2 text-left text-xs font-semibold text-foreground hover:border-accent hover:bg-accent-light">
+                <button key={preset.label} type="button" onClick={() => applyPreset(preset)} className="min-w-0 rounded-lg border border-border bg-background px-3 py-2 text-left text-xs font-semibold text-foreground hover:border-accent hover:bg-accent-light">
                   {preset.label}
                 </button>
               ))}

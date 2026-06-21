@@ -6,8 +6,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
 import { PageHeader } from '@/components/PageHeader'
 import { AIInsightBox } from '@/components/AIInsightBox'
-import { deleteSession, loadPlayer, loadSessions } from '@/lib/api'
-import type { Player, Session } from '@/lib/data'
+import { deleteSession, loadPlayer, loadSessionTrainingBlocks, loadSessions, loadTrainingBlocks } from '@/lib/api'
+import type { Player, Session, SessionTrainingBlockLink, TrainingBlock } from '@/lib/data'
 import { legacyScoreToMatchScore, normalizeMatchScore, scoreCell } from '@/lib/match-score'
 import {
   Clock,
@@ -55,15 +55,27 @@ export default function SessionDetailPage() {
   const router = useRouter()
   const [session, setSession] = useState<Session | null | undefined>(undefined)
   const [player, setPlayer] = useState<Player | null>(null)
+  const [trainingBlocks, setTrainingBlocks] = useState<TrainingBlock[]>([])
+  const [blockLinks, setBlockLinks] = useState<SessionTrainingBlockLink[]>([])
   const [activeTab, setActiveTab] = useState('Summary')
   const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const id = String(params.id)
-    loadSessions().then((loaded) => {
-      setSession((loaded ?? []).find((item) => item.id === id) ?? null)
-    })
-    loadPlayer().then(setPlayer)
+    loadSessions()
+      .then((loaded) => setSession((loaded ?? []).find((item) => item.id === id) ?? null))
+      .catch((loadError) => {
+        setError(loadError instanceof Error ? loadError.message : 'Session could not load.')
+        setSession(null)
+      })
+    loadPlayer().then(setPlayer).catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Player profile could not load.'))
+    loadTrainingBlocks()
+      .then((loaded) => setTrainingBlocks(loaded ?? []))
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Training blocks could not load.'))
+    loadSessionTrainingBlocks(id)
+      .then((loaded) => setBlockLinks(loaded ?? []))
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Session training blocks could not load.'))
   }, [params.id])
 
   if (session === undefined) {
@@ -85,6 +97,9 @@ export default function SessionDetailPage() {
   }
 
   const isPlanned = session.status === 'planned'
+  const linkedBlocks = blockLinks
+    .map((link) => ({ link, block: trainingBlocks.find((block) => block.id === link.trainingBlockId) }))
+    .filter((item): item is { link: SessionTrainingBlockLink; block: TrainingBlock } => Boolean(item.block))
 
   const handleDelete = async () => {
     if (!window.confirm('Delete this session? This cannot be undone.')) return
@@ -92,6 +107,8 @@ export default function SessionDetailPage() {
     try {
       await deleteSession(session.id)
       router.push('/sessions')
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Could not delete session.')
     } finally {
       setDeleting(false)
     }
@@ -126,6 +143,8 @@ export default function SessionDetailPage() {
           </div>
         }
       />
+
+      {error && <p className="mb-4 rounded-lg border border-danger/20 bg-danger/5 p-3 text-sm text-danger">{error}</p>}
 
       {/* Session Meta */}
       <div className={`grid grid-cols-2 gap-4 mb-6 ${isPlanned ? 'sm:grid-cols-3' : 'sm:grid-cols-4'}`}>
@@ -257,6 +276,30 @@ export default function SessionDetailPage() {
                   </h2>
                   <p className="text-sm text-foreground leading-relaxed">{session.nextFocus}</p>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {linkedBlocks.length > 0 && (
+            <div className="rounded-card border border-border bg-surface p-5 shadow-card">
+              <h2 className="font-display text-lg font-bold tracking-label uppercase text-foreground mb-3">
+                Training Block Context
+              </h2>
+              <div className="space-y-3">
+                {linkedBlocks.map(({ link, block }) => (
+                  <div key={link.id} className="rounded-lg border border-border bg-background p-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground">{block.title}</p>
+                        <p className="mt-1 max-w-[54ch] text-xs leading-5 text-muted">{block.objective}</p>
+                      </div>
+                      <span className="inline-flex w-fit rounded-full bg-accent-light px-2 py-1 text-[10px] font-semibold uppercase tracking-label text-accent">
+                        {link.completionStatus}
+                      </span>
+                    </div>
+                    {link.successCriteriaNotes && <p className="mt-2 text-xs leading-5 text-muted">{link.successCriteriaNotes}</p>}
+                  </div>
+                ))}
               </div>
             </div>
           )}

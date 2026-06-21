@@ -9,6 +9,7 @@ The default app path stores data on the self-hoster's machine:
 - Player profile and onboarding answers
 - Session journal entries and transcripts
 - Opponents, tournaments, tournament matches, stats, rating history, and memories
+- Patterns and training blocks
 - Coach chat history
 - Imported source videos
 - Exported point clips and 9:16 reels
@@ -34,7 +35,7 @@ Deleting clip metadata in the app does not delete the source video or exported m
 
 ## External AI Providers
 
-AI is optional. If no provider is configured, the app remains usable for journaling, manual video review, stats, memories, settings, and export.
+AI is optional. If no provider is configured, the app remains usable for journaling, manual video review, stats, memories, patterns, training blocks, settings, import, and export.
 
 If the self-hoster configures Gemini or OpenAI, selected AI actions may send content to that provider:
 
@@ -50,6 +51,8 @@ External AI provider API costs, retention policies, and account security are the
 ## Backups
 
 Back up the SQLite database and video storage directory together. Stop the app before copying live files.
+
+JSON exports do not contain source video binaries or exported media files. Back up the video storage directory separately.
 
 ## Logs
 

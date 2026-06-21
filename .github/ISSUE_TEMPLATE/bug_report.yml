@@ -1,0 +1,51 @@
+name: Bug report
+description: Report a reproducible self-hosted Raqet bug
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List exact commands, routes, and clicks.
+      placeholder: |
+        1. Run npm.cmd run dev
+        2. Open /clips
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the visible error message. Do not include secrets or private exports.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: Windows 11, Node 22.x, npm 10.x
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification run
+      description: Paste the result of typecheck/build if relevant.
+      placeholder: |
+        npm.cmd run typecheck
+        npm.cmd run build

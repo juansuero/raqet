@@ -14,12 +14,19 @@ export default function ClipDetailPage() {
   const params = useParams()
   const [clip, setClip] = useState<Clip | null | undefined>(undefined)
   const [activeTab, setActiveTab] = useState('Tactical Analysis')
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const id = String(params.id)
-    loadClips().then((loaded) => {
-      setClip((loaded ?? []).find((item) => item.id === id) ?? null)
-    })
+    loadClips()
+      .then((loaded) => {
+        setClip((loaded ?? []).find((item) => item.id === id) ?? null)
+        setError('')
+      })
+      .catch((loadError) => {
+        setError(loadError instanceof Error ? loadError.message : 'Clip could not load.')
+        setClip(null)
+      })
   }, [params.id])
 
   if (clip === undefined) {
@@ -35,7 +42,7 @@ export default function ClipDetailPage() {
     return (
       <AppShell title="Clip Not Found">
         <PageHeader title="Clip Not Found" backHref="/clips" />
-        <p className="text-muted">This clip does not exist in your account.</p>
+        <p className={error ? 'text-danger' : 'text-muted'}>{error || 'This clip does not exist in your account.'}</p>
       </AppShell>
     )
   }
@@ -66,34 +73,34 @@ export default function ClipDetailPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        <div className="bg-surface border border-border rounded-card p-4">
-          <div className="flex items-center gap-2 text-muted mb-1">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="min-w-0 rounded-card border border-border bg-surface p-4">
+          <div className="mb-1 flex min-w-0 items-center gap-2 text-muted">
             <Target className="w-4 h-4" />
-            <span className="text-xs tracking-label uppercase font-medium">Decision</span>
+            <span className="min-w-0 text-xs font-medium uppercase tracking-label">Decision</span>
           </div>
           <p className="text-2xl font-display font-bold text-foreground">{clip.decisionQuality}/10</p>
         </div>
-        <div className="bg-surface border border-border rounded-card p-4">
-          <div className="flex items-center gap-2 text-muted mb-1">
+        <div className="min-w-0 rounded-card border border-border bg-surface p-4">
+          <div className="mb-1 flex min-w-0 items-center gap-2 text-muted">
             <TrendingUp className="w-4 h-4" />
-            <span className="text-xs tracking-label uppercase font-medium">Review</span>
+            <span className="min-w-0 text-xs font-medium uppercase tracking-label">Review</span>
           </div>
           <p className="text-2xl font-display font-bold text-foreground">{clip.contentScore}/10</p>
         </div>
-        <div className="bg-surface border border-border rounded-card p-4">
-          <div className="flex items-center gap-2 text-muted mb-1">
+        <div className="min-w-0 rounded-card border border-border bg-surface p-4">
+          <div className="mb-1 flex min-w-0 items-center gap-2 text-muted">
             <Video className="w-4 h-4" />
-            <span className="text-xs tracking-label uppercase font-medium">Type</span>
+            <span className="min-w-0 text-xs font-medium uppercase tracking-label">Type</span>
           </div>
-          <p className="text-lg font-display font-bold text-foreground capitalize">{clip.clipType.replace('_', ' ')}</p>
+          <p className="min-w-0 break-words font-display text-lg font-bold capitalize text-foreground">{clip.clipType.replace('_', ' ')}</p>
         </div>
-        <div className="bg-surface border border-border rounded-card p-4">
-          <div className="flex items-center gap-2 text-muted mb-1">
+        <div className="min-w-0 rounded-card border border-border bg-surface p-4">
+          <div className="mb-1 flex min-w-0 items-center gap-2 text-muted">
             <Calendar className="w-4 h-4" />
-            <span className="text-xs tracking-label uppercase font-medium">Result</span>
+            <span className="min-w-0 text-xs font-medium uppercase tracking-label">Result</span>
           </div>
-          <p className="text-lg font-display font-bold text-foreground capitalize">{clip.pointResult}</p>
+          <p className="min-w-0 break-words font-display text-lg font-bold capitalize text-foreground">{clip.pointResult}</p>
         </div>
       </div>
 

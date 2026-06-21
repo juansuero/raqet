@@ -5,10 +5,10 @@ Raqet is a self-hostable solo tennis journal and video review app for one player
 The open-source baseline is local-first:
 
 - SQLite persistence by default.
-- No hosted auth, invite gate, Sentry, Vercel Analytics, Supabase project, managed usage limit, or Raqet-hosted AI proxy required.
-- Local player profile onboarding, sessions, opponents, tournaments, stats, memories, settings, JSON export, and privacy/terms pages.
-- Local video library with point clipping, ffmpeg exports, and 9:16 reel exports.
-- Optional bring-your-own external AI keys for Gemini or OpenAI.
+- No hosted auth, invite gate, Sentry, Vercel Analytics, Supabase project, managed usage limit, billing system, or Raqet-hosted AI proxy required.
+- Local player profile onboarding, sessions, opponents, tournaments, stats, memories, settings, JSON import/export, privacy/terms pages, patterns, and training blocks.
+- Local video library with source video storage, point clipping, ffmpeg clip export, batch highlight export, and 9:16 reel export.
+- Optional bring-your-own Gemini or OpenAI keys for AI actions.
 
 Teams, coach roster workflows, hosted beta invites, hosted analytics/monitoring, and managed usage limits are excluded from the default self-hosted solo release.
 
@@ -55,9 +55,11 @@ npm.cmd run build
 npm.cmd run start
 ```
 
+The production build intentionally uses webpack through the `build` script. Use the scripts in `package.json` instead of calling `next build` directly.
+
 ## Configuration
 
-Copy `.env.example` to `.env` only when you need to override defaults. The app starts without any cloud credentials.
+Copy `.env.example` to `.env` only when you need to override defaults. The app starts without cloud credentials.
 
 ```env
 RAQET_DB_PATH=
@@ -75,9 +77,25 @@ RAQET_SOLO_EMAIL=player@localhost
 RAQET_SOLO_NAME=Player
 ```
 
+See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for details.
+
+## Import From Hosted Raqet
+
+Hosted and self-hosted Raqet exports are JSON files.
+
+1. In the hosted app, use **Export Data** or open `/api/export`. The response downloads as `raqet-export-YYYY-MM-DD.json`.
+2. Start the self-hosted app.
+3. Open `/onboarding` or `/settings`.
+4. Drag the JSON file into the **Import JSON** box, or choose it with the file picker.
+5. Review the import summary. Records are merged by ID, so existing records with the same IDs are updated.
+
+Imported data includes profile, sessions, opponents, tournaments, tournament matches, memories, coach messages, rating history, projects, clips, patterns, training blocks, and session training block links. Local source video files are not embedded in JSON exports; back them up separately.
+
+See [docs/IMPORT_EXPORT.md](docs/IMPORT_EXPORT.md).
+
 ## Optional AI
 
-AI is optional. Journaling, manual video review, stats, memories, settings, and export work without a provider.
+AI is optional. Journaling, manual video review, stats, memories, settings, import, and export work without a provider.
 
 Gemini:
 
@@ -97,7 +115,7 @@ Set `RAQET_AI_DISABLED=true` to force the no-provider path even if keys exist in
 
 External AI provider API costs are the self-hoster's responsibility. Raqet does not include billing, hosted usage limits, or managed Raqet AI infrastructure.
 
-AI actions disclose what is sent. Source full-match videos are never uploaded automatically. Selected video AI only sends an exported short clip after explicit user action.
+AI actions disclose what is sent. Source full-match videos are never uploaded automatically. Selected video AI sends an exported short clip only after explicit user action.
 
 ## Video Storage
 
@@ -143,10 +161,10 @@ npm.cmd run build
 
 Browser smoke checklist:
 
-- `/onboarding` saves a local player profile.
+- `/onboarding` saves a local player profile and imports a JSON export by picker or drag-and-drop.
 - `/dashboard` loads without hosted env vars.
 - `/sessions`, `/sessions/new`, and session detail pages use SQLite-backed records.
-- `/opponents`, `/tournaments`, `/stats`, `/memory`, `/settings`, and `/api/export` load.
+- `/opponents`, `/tournaments`, `/stats`, `/memory`, `/patterns`, `/training-plan`, `/settings`, and `/api/export` load.
 - `/clips` imports a local video, plays it, marks point start/end, saves point metadata, exports a standard clip, and exports a 9:16 reel.
 - `/settings` shows AI provider status without exposing API keys.
 - `/team` and `/api/team` return 404 and Team is absent from normal navigation.
@@ -157,7 +175,7 @@ See [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) before tagging a release.
 
 `SQLite is an experimental feature`
 
-Node currently marks the built-in SQLite module experimental. Use Node 22+ and expect this warning during builds.
+Node currently marks the built-in SQLite module experimental. The production build should be clean, but `db:init` or runtime database access may still print this Node warning. Use Node 22+.
 
 `ffmpeg was not found`
 
@@ -170,6 +188,20 @@ Leave AI disabled for local-only use, or configure `RAQET_AI_PROVIDER` with the 
 Team routes
 
 The self-hosted release excludes Team source routes. `/team` and `/api/team` are blocked by middleware and should return 404.
+
+## GitHub Release Docs
+
+- [docs/INSTALLATION.md](docs/INSTALLATION.md)
+- [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
+- [docs/IMPORT_EXPORT.md](docs/IMPORT_EXPORT.md)
+- [docs/PUBLISHING.md](docs/PUBLISHING.md)
+- [RELEASE_GUIDE.md](RELEASE_GUIDE.md)
+- [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)
+- [CHANGELOG.md](CHANGELOG.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [SECURITY.md](SECURITY.md)
+- [SUPPORT.md](SUPPORT.md)
+- [PRIVACY.md](PRIVACY.md)
 
 ## Privacy
 

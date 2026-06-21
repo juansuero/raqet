@@ -8,11 +8,11 @@ Raqet's default release path must not require Supabase, hosted auth, invite gate
 
 Include:
 
-- Solo dashboard, onboarding/profile, sessions, opponents, tournaments, stats, memories, settings, export, and legal/privacy pages.
+- Solo dashboard, onboarding/profile, sessions, opponents, tournaments, stats, memories, patterns, training plan, settings, import/export, and legal/privacy pages.
 - SQLite persistence through the local data layer.
-- Local video library, source video storage, point clipping, ffmpeg clip export, and 9:16 reel export.
+- Local video library, source video storage, point clipping, ffmpeg clip export, batch highlight export, and 9:16 reel export.
 - Optional bring-your-own external AI provider configuration for Gemini or OpenAI.
-- Setup, privacy, security, contribution, and release checklist docs.
+- Setup, privacy, security, contribution, support, changelog, and release checklist docs.
 
 Exclude from the public self-hosted release:
 
@@ -62,7 +62,9 @@ npm.cmd run typecheck
 npm.cmd run build
 ```
 
-Expected result: both pass. Node may print an experimental SQLite warning.
+Expected result: both pass.
+
+The production build should not need a live SQLite connection. `db:init` and runtime database access may still print Node's built-in SQLite experimental warning.
 
 ## 5. Browser Smoke
 
@@ -75,8 +77,11 @@ Verify:
 - `/tournaments` works.
 - `/stats` works.
 - `/memory` works.
+- `/patterns` works.
+- `/training-plan` works.
 - `/settings` works.
 - `/api/export` returns JSON.
+- `/onboarding` and `/settings` import a Raqet JSON export by file picker and drag-and-drop.
 - Team is absent from normal navigation.
 - `/team` and `/api/team` return 404.
 
@@ -124,7 +129,19 @@ Verify at least one text/session AI action succeeds. If testing selected clip an
 
 External AI provider API costs are the self-hoster's responsibility.
 
-## 8. Privacy And Security Check
+## 8. Import And Export Verification
+
+Verify:
+
+- `/api/export` downloads a dated JSON file, for example `raqet-export-2026-06-21.json`.
+- The export includes profile, sessions, opponents, tournaments, tournament matches, memories, coach messages, rating history, projects, clips, patterns, training blocks, and session training block links when present.
+- `/onboarding` imports the JSON export from the first-run page.
+- `/settings` imports the same JSON export after onboarding.
+- Drag-and-drop and file picker imports both show a visible success or error state.
+- Import errors are shown in the UI and are not silent.
+- JSON import does not claim to restore source video files; local videos must be backed up separately.
+
+## 9. Privacy And Security Check
 
 Confirm:
 
@@ -143,9 +160,56 @@ Recommended scan:
 rg -n "AIza[0-9A-Za-z_-]+|sk-[A-Za-z0-9_-]{10,}|gsk_[A-Za-z0-9_-]+|sb_secret_[A-Za-z0-9_-]+|SENTRY_DSN|SUPABASE_SECRET_KEY" . -g "!node_modules" -g "!.next" -g "!data" -g "!.git"
 ```
 
-`SENTRY_DSN` and `SUPABASE_SECRET_KEY` should not appear in active self-hosted release docs.
+`SENTRY_DSN` and `SUPABASE_SECRET_KEY` should not appear outside this release-scan example.
 
-## 9. Publishing
+## 10. Personal GitHub Publishing
+
+This working tree is already configured for Juan's personal GitHub SSH alias:
+
+```powershell
+git remote -v
+# origin  git@github-personal:juansuero/raqet.git (fetch)
+# origin  git@github-personal:juansuero/raqet.git (push)
+```
+
+Current machine check:
+
+- `ssh -T git@github-personal` authenticates as `juansuero`.
+- `gh auth status` currently reports the active GitHub CLI account as `veltastech`.
+
+Use Git over the `git@github-personal` remote for normal pushes. Switch GitHub CLI to `juansuero` before using `gh repo create` or `gh release create`.
+
+If setting it up again from another clone:
+
+```powershell
+git remote set-url origin git@github-personal:juansuero/raqet.git
+ssh -T git@github-personal
+git push -u origin main
+```
+
+If the personal repository does not exist yet and GitHub CLI is authenticated as the personal account:
+
+```powershell
+gh auth status
+gh repo create juansuero/raqet --public --source=. --remote=origin --push --description "Self-hosted solo tennis journal and video review app"
+```
+
+If `gh auth status` shows the work account, switch before creating the repo:
+
+```powershell
+gh auth switch --hostname github.com --user juansuero
+```
+
+If the personal account is not configured in GitHub CLI yet:
+
+```powershell
+gh auth logout -h github.com
+gh auth login -h github.com -p ssh
+```
+
+Keep the `git@github-personal` SSH alias if this machine uses separate personal and work GitHub keys.
+
+## 11. Publishing
 
 Do not publish from the private development repository if it contains unrelated history, generated assets, internal experiments, or private beta context.
 
@@ -156,3 +220,12 @@ Recommended path:
 3. Run fresh setup and build verification in that repository.
 4. Tag the first release after verification.
 5. Promote it as a self-hosted solo app, not as the old hosted beta product.
+
+Create the first GitHub release after the tag exists:
+
+```powershell
+git tag v0.1.0
+git push origin main
+git push origin v0.1.0
+gh release create v0.1.0 --title "Raqet v0.1.0" --notes-file CHANGELOG.md
+```

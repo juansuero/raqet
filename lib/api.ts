@@ -1,4 +1,4 @@
-import type { Clip, ClipAnalysis, CoachMessage, GoogleCalendarConnection, LocalVideo, MemoryItem, Opponent, Player, Project, RatingHistoryEntry, ReelKeyframe, Session, Tournament, TournamentMatch } from '@/lib/data'
+import type { Clip, ClipAnalysis, CoachMessage, GoogleCalendarConnection, LocalVideo, MemoryItem, Opponent, Pattern, Player, Project, RatingHistoryEntry, ReelKeyframe, Session, SessionTrainingBlockLink, Tournament, TournamentMatch, TrainingBlock } from '@/lib/data'
 import type { CompiledPlayerProfile, PlayerInterviewAnswers } from '@/lib/player-profile'
 
 export const maxAudioUploadBytes = 18 * 1024 * 1024
@@ -13,10 +13,13 @@ async function request<T>(url: string, init?: RequestInit): Promise<T | null> {
       },
     })
 
-    if (!response.ok) return null
+    if (!response.ok) throw new Error(await readApiError(response, `${url} request failed`))
     return response.json()
-  } catch {
-    return null
+  } catch (error) {
+    if (error instanceof TypeError && String(error.message || '').toLowerCase().includes('failed to fetch')) {
+      throw new Error(`Network request failed for ${url}. Check that the self-hosted server is running.`)
+    }
+    throw error
   }
 }
 
@@ -73,7 +76,7 @@ export async function analyzeSessionVoice(audio: File, sessionContext: string, s
     if (!response.ok) throw new Error(await readApiError(response, 'Voice debrief failed'))
     return response.json()
   } catch (error) {
-    if (error instanceof TypeError && error.message.toLowerCase().includes('failed to fetch')) {
+    if (error instanceof TypeError && String(error.message || '').toLowerCase().includes('failed to fetch')) {
       throw new Error('Voice analysis request was interrupted or timed out. The session draft was saved; try a shorter audio note or check the session later.')
     }
     throw error instanceof Error ? error : new Error('Voice debrief failed')
@@ -597,8 +600,71 @@ export function loadMemories() {
 }
 
 export function updateMemoryStatus(id: string, status: MemoryItem['status']) {
-  return request<{ ok: true }>('/api/memory', {
+  return request<MemoryItem>('/api/memory', {
     method: 'PATCH',
     body: JSON.stringify({ id, status }),
   })
+}
+
+export function updateMemoryItem(input: Pick<MemoryItem, 'id'> & Partial<Pick<MemoryItem, 'content' | 'category' | 'status'>>) {
+  return request<MemoryItem>('/api/memory', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+}
+
+export function loadPatterns() {
+  return request<Pattern[]>('/api/patterns')
+}
+
+export async function generatePatternDrafts() {
+  const response = await fetch('/api/patterns/generate', { method: 'POST' })
+  if (!response.ok) throw new Error(await readApiError(response, 'Pattern generation failed'))
+  return response.json() as Promise<Pattern[]>
+}
+
+export function updatePattern(pattern: Pattern) {
+  return request<Pattern>('/api/patterns', {
+    method: 'PATCH',
+    body: JSON.stringify(pattern),
+  })
+}
+
+export function loadTrainingBlocks() {
+  return request<TrainingBlock[]>('/api/training-blocks')
+}
+
+export async function generateTrainingBlockDrafts() {
+  const response = await fetch('/api/training-blocks/generate', { method: 'POST' })
+  if (!response.ok) throw new Error(await readApiError(response, 'Training block generation failed'))
+  return response.json() as Promise<TrainingBlock[]>
+}
+
+export function createTrainingBlock(block: Partial<TrainingBlock>) {
+  return request<TrainingBlock>('/api/training-blocks', {
+    method: 'POST',
+    body: JSON.stringify(block),
+  })
+}
+
+export function updateTrainingBlock(block: TrainingBlock) {
+  return request<TrainingBlock>('/api/training-blocks', {
+    method: 'PATCH',
+    body: JSON.stringify(block),
+  })
+}
+
+export function loadSessionTrainingBlocks(sessionId?: string) {
+  return request<SessionTrainingBlockLink[]>(`/api/session-training-blocks${sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ''}`)
+}
+
+export async function saveSessionTrainingBlocks(sessionId: string, links: Array<Pick<SessionTrainingBlockLink, 'trainingBlockId' | 'completionStatus' | 'successCriteriaNotes'>>) {
+  const response = await fetch('/api/session-training-blocks', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId, links }),
+  })
+
+  if (!response.ok) throw new Error(await readApiError(response, 'Session training block save failed'))
+  return response.json() as Promise<SessionTrainingBlockLink[]>
 }

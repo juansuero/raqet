@@ -1,11 +1,9 @@
 import { mkdirSync } from 'fs'
 import path from 'path'
-import type { CoachMessage, InAppNotification, MemoryItem, Opponent, Player, Project, RatingHistoryEntry, Session, Tournament, TournamentMatch } from '@/lib/data'
+import type { CoachMessage, InAppNotification, MemoryItem, Opponent, Pattern, Player, Project, RatingHistoryEntry, Session, SessionTrainingBlockLink, Tournament, TournamentMatch, TrainingBlock } from '@/lib/data'
 import { emptyPlayer } from '@/lib/player-defaults'
 
-import { DatabaseSync } from 'node:sqlite'
-
-type GenericRecord = { id: string; createdAt?: string; updatedAt?: string }
+import type { DatabaseSync } from 'node:sqlite'
 
 export const soloUser = {
   id: 'solo',
@@ -14,7 +12,11 @@ export const soloUser = {
   user_metadata: { full_name: process.env.RAQET_SOLO_NAME || 'Player' },
 }
 
-const dbPath = process.env.RAQET_DB_PATH || path.join(process.cwd(), 'data', 'raqet.sqlite')
+function runtimeDataPath(...segments: string[]) {
+  return [process.cwd(), 'data', ...segments].join(path.sep)
+}
+
+const dbPath = process.env.RAQET_DB_PATH || runtimeDataPath('raqet.sqlite')
 
 let db: DatabaseSync | null = null
 
@@ -24,6 +26,7 @@ function now() {
 
 function database() {
   if (db) return db
+  const { DatabaseSync } = require('node:sqlite') as typeof import('node:sqlite')
   mkdirSync(path.dirname(dbPath), { recursive: true })
   db = new DatabaseSync(dbPath)
   db.exec(`
@@ -63,6 +66,46 @@ function save<T extends { id: string; createdAt?: string }>(type: string, item: 
   return next
 }
 
+const soloSessionTypes = new Set<Session['type']>(['training', 'match', 'class', 'tournament', 'fitness'])
+
+function normalizeSoloSession(session: Partial<Session> & {
+  notes?: unknown
+  summary?: unknown
+  strengths?: unknown
+  weaknesses?: unknown
+}): Session {
+  const type = soloSessionTypes.has(session.type as Session['type']) ? session.type as Session['type'] : 'training'
+  const rawNotes = String(session.rawNotes || session.notes || '')
+  const aiSummary = session.aiSummary || session.summary
+  const whatWentWell = Array.isArray(session.whatWentWell) ? session.whatWentWell : Array.isArray(session.strengths) ? session.strengths : []
+  const whatWentWrong = Array.isArray(session.whatWentWrong) ? session.whatWentWrong : Array.isArray(session.weaknesses) ? session.weaknesses : []
+
+  return {
+    ...session,
+    id: String(session.id || crypto.randomUUID()),
+    playerId: String(session.playerId || soloUser.id),
+    type,
+    title: String(session.title || session.mainFocus || aiSummary || rawNotes || 'Untitled session'),
+    durationMinutes: Number(session.durationMinutes || 0),
+    surface: String(session.surface || ''),
+    location: String(session.location || ''),
+    intensity: Number(session.intensity || 0),
+    energyBefore: Number(session.energyBefore || 0),
+    energyAfter: Number(session.energyAfter || 0),
+    confidence: Number(session.confidence || 0),
+    mainFocus: String(session.mainFocus || ''),
+    rawNotes,
+    aiSummary: aiSummary ? String(aiSummary) : undefined,
+    whatWentWell: whatWentWell.map(String),
+    whatWentWrong: whatWentWrong.map(String),
+    nextFocus: Array.isArray(session.nextFocus) ? session.nextFocus.map(String).join('\n') : session.nextFocus ? String(session.nextFocus) : undefined,
+    tags: Array.isArray(session.tags) ? session.tags.map(String).filter(Boolean) : [],
+    date: String(session.date || new Date().toISOString().slice(0, 10)),
+    status: session.status ?? 'completed',
+    createdAt: String(session.createdAt || now()),
+  } as Session
+}
+
 function remove(type: string, id: string) {
   database().prepare('delete from records where type = ? and id = ?').run(type, id)
 }
@@ -87,15 +130,16 @@ export function saveSoloPlayer(player: Player): Player {
 }
 
 export function listSoloSessions() {
-  return all<Session>('session').sort((a, b) => b.date.localeCompare(a.date))
+  return all<Session>('session').map(normalizeSoloSession).sort((a, b) => b.date.localeCompare(a.date))
 }
 
 export function getSoloSession(id: string) {
-  return get<Session>('session', id)
+  const session = get<Session>('session', id)
+  return session ? normalizeSoloSession(session) : null
 }
 
 export function saveSoloSession(session: Session) {
-  return save('session', { ...session, id: session.id || crypto.randomUUID(), playerId: session.playerId || soloUser.id })
+  return save('session', normalizeSoloSession({ ...session, id: session.id || crypto.randomUUID(), playerId: session.playerId || soloUser.id }))
 }
 
 export function deleteSoloSession(id: string) {
@@ -164,6 +208,17 @@ export function updateSoloMemoryStatus(id: string, status: MemoryItem['status'])
   return saveSoloMemory({ ...memory, status })
 }
 
+export function updateSoloMemoryItem(input: Pick<MemoryItem, 'id'> & Partial<Pick<MemoryItem, 'content' | 'category' | 'status'>>) {
+  const memory = get<MemoryItem>('memory', input.id)
+  if (!memory) return null
+  return saveSoloMemory({
+    ...memory,
+    ...input,
+    content: typeof input.content === 'string' ? input.content.trim() : memory.content,
+    updatedAt: now(),
+  })
+}
+
 export function listSoloCoachMessages() {
   return all<CoachMessage>('coach_message').sort((a, b) => a.createdAt.localeCompare(b.createdAt)).slice(-40)
 }
@@ -227,27 +282,68 @@ export function deleteSoloProject(id: string) {
 }
 
 export function listSoloPatterns() {
-  return all<GenericRecord>('pattern').sort((a, b) => String(b.updatedAt ?? b.createdAt ?? '').localeCompare(String(a.updatedAt ?? a.createdAt ?? '')))
+  return all<Pattern>('pattern').sort((a, b) => String(b.updatedAt ?? b.createdAt ?? '').localeCompare(String(a.updatedAt ?? a.createdAt ?? '')))
 }
 
-export function saveSoloPattern(pattern: GenericRecord) {
-  return save('pattern', pattern)
+export function saveSoloPattern(pattern: Pattern) {
+  const timestamp = now()
+  return save('pattern', {
+    ...pattern,
+    id: pattern.id || crypto.randomUUID(),
+    playerId: pattern.playerId || soloUser.id,
+    relatedSessionIds: pattern.relatedSessionIds ?? [],
+    relatedTournamentMatchIds: pattern.relatedTournamentMatchIds ?? [],
+    relatedClipIds: pattern.relatedClipIds ?? [],
+    createdAt: pattern.createdAt || timestamp,
+    updatedAt: timestamp,
+  })
 }
 
 export function listSoloTrainingBlocks() {
-  return all<GenericRecord>('training_block').sort((a, b) => String(b.updatedAt ?? b.createdAt ?? '').localeCompare(String(a.updatedAt ?? a.createdAt ?? '')))
+  return all<TrainingBlock>('training_block').sort((a, b) => String(b.updatedAt ?? b.createdAt ?? '').localeCompare(String(a.updatedAt ?? a.createdAt ?? '')))
 }
 
-export function saveSoloTrainingBlock(block: GenericRecord) {
-  return save('training_block', block)
+export function saveSoloTrainingBlock(block: TrainingBlock) {
+  const timestamp = now()
+  return save('training_block', {
+    ...block,
+    id: block.id || crypto.randomUUID(),
+    playerId: block.playerId || soloUser.id,
+    instructions: block.instructions ?? [],
+    successCriteria: block.successCriteria ?? [],
+    createdAt: block.createdAt || timestamp,
+    updatedAt: timestamp,
+  })
 }
 
 export function listSoloSessionTrainingBlocks() {
-  return all<GenericRecord>('session_training_block').sort((a, b) => String(b.updatedAt ?? b.createdAt ?? '').localeCompare(String(a.updatedAt ?? a.createdAt ?? '')))
+  return all<SessionTrainingBlockLink>('session_training_block').sort((a, b) => String(b.updatedAt ?? b.createdAt ?? '').localeCompare(String(a.updatedAt ?? a.createdAt ?? '')))
 }
 
-export function saveSoloSessionTrainingBlock(link: GenericRecord) {
-  return save('session_training_block', link)
+export function saveSoloSessionTrainingBlock(link: SessionTrainingBlockLink) {
+  const timestamp = now()
+  return save('session_training_block', {
+    ...link,
+    id: link.id || crypto.randomUUID(),
+    createdAt: link.createdAt || timestamp,
+    updatedAt: timestamp,
+  })
+}
+
+export function replaceSoloSessionTrainingBlocks(sessionId: string, links: Array<Pick<SessionTrainingBlockLink, 'trainingBlockId' | 'completionStatus' | 'successCriteriaNotes'>>) {
+  listSoloSessionTrainingBlocks()
+    .filter((link) => link.sessionId === sessionId)
+    .forEach((link) => remove('session_training_block', link.id))
+
+  return links.map((link) => saveSoloSessionTrainingBlock({
+    id: crypto.randomUUID(),
+    sessionId,
+    trainingBlockId: link.trainingBlockId,
+    completionStatus: link.completionStatus || 'planned',
+    successCriteriaNotes: link.successCriteriaNotes || '',
+    createdAt: now(),
+    updatedAt: now(),
+  }))
 }
 
 export function soloExport() {

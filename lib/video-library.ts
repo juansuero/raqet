@@ -9,9 +9,11 @@ import { fileURLToPath } from 'url'
 import type { Clip, LocalVideo, ReelKeyframe } from '@/lib/data'
 import { getSoloProject, initSoloDatabase } from '@/lib/solo-store'
 
-import { DatabaseSync } from 'node:sqlite'
+function localDataPath(...segments: string[]) {
+  return [process.cwd(), 'data', ...segments].join(path.sep)
+}
 
-export const videoStorageRoot = process.env.RAQET_VIDEO_STORAGE_PATH || path.join(process.cwd(), 'data', 'video-library')
+export const videoStorageRoot = process.env.RAQET_VIDEO_STORAGE_PATH || localDataPath('video-library')
 export const defaultSourceVideoDir = path.join(videoStorageRoot, 'sources')
 export const defaultExportedClipDir = path.join(videoStorageRoot, 'exports', 'clips')
 export const defaultExportedReelDir = path.join(videoStorageRoot, 'exports', 'reels')
@@ -57,6 +59,7 @@ type RangeRead = {
 
 function db() {
   const { path: dbPath } = initSoloDatabase()
+  const { DatabaseSync } = require('node:sqlite') as typeof import('node:sqlite')
   return new DatabaseSync(dbPath)
 }
 
@@ -955,6 +958,6 @@ export function videoStorageInfo(projectId?: string) {
     exportedClips: projectExportedClipDir(projectId),
     exportedReels: projectExportedReelDir(projectId),
     exportedHighlights: projectExportedHighlightDir(projectId),
-    metadata: process.env.RAQET_DB_PATH || path.join(process.cwd(), 'data', 'raqet.sqlite'),
+    metadata: process.env.RAQET_DB_PATH || localDataPath('raqet.sqlite'),
   }
 }

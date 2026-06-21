@@ -6,7 +6,7 @@ Raqet's open-source baseline is a self-hosted solo tennis journal and video revi
 
 Good first contributions:
 
-- Solo journaling, tournaments, opponents, stats, memories, settings, export, and local video review.
+- Solo journaling, tournaments, opponents, stats, memories, patterns, training blocks, settings, import/export, and local video review.
 - SQLite-backed persistence.
 - Clear setup docs and local-first privacy improvements.
 - Optional external AI provider adapters that do not require hosted Raqet infrastructure.

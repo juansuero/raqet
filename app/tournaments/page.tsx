@@ -76,9 +76,13 @@ export default function TournamentsPage() {
   const [tournamentForm, setTournamentForm] = useState<TournamentForm>(emptyTournamentForm)
 
   useEffect(() => {
-    loadPlayer().then(setPlayer)
-    loadTournaments().then((loaded) => setTournaments(loaded ?? []))
-    loadTournamentMatches().then((loaded) => setMatches(loaded ?? []))
+    loadPlayer().then(setPlayer).catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Player profile could not load.'))
+    loadTournaments()
+      .then((loaded) => setTournaments(loaded ?? []))
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Tournaments could not load.'))
+    loadTournamentMatches()
+      .then((loaded) => setMatches(loaded ?? []))
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Tournament matches could not load.'))
   }, [])
 
   const matchesByTournament = useMemo(() => {

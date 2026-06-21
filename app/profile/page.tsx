@@ -14,11 +14,14 @@ export default function ProfilePage() {
   const [player, setPlayer] = useState(currentPlayer)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    loadPlayer().then((loaded) => {
-      if (loaded) setPlayer(loaded)
-    })
+    loadPlayer()
+      .then((loaded) => {
+        if (loaded) setPlayer(loaded)
+      })
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Player profile could not load.'))
   }, [])
 
   const handleChange = (field: string, value: string | string[] | number | undefined) => {
@@ -28,13 +31,21 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     setSaving(true)
-    const savedPlayer = await savePlayer(player)
-    if (savedPlayer) {
-      setPlayer(savedPlayer)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+    setError('')
+    try {
+      const savedPlayer = await savePlayer(player)
+      if (savedPlayer) {
+        setPlayer(savedPlayer)
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+      } else {
+        setError('Could not save player profile.')
+      }
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Could not save player profile.')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   return (
@@ -51,7 +62,8 @@ export default function ProfilePage() {
             </Link>
             <button
               onClick={handleSave}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors"
+              disabled={saving}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-60"
             >
               {saved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
               {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Changes'}
@@ -61,6 +73,7 @@ export default function ProfilePage() {
       />
 
       <div className="readable-panel bg-surface border border-border rounded-card shadow-card p-6">
+        {error && <p className="mb-4 rounded-lg border border-danger/20 bg-danger/5 p-3 text-sm text-danger">{error}</p>}
         {/* Avatar & Name */}
         <div className="flex items-center gap-4 mb-6 pb-6 border-b border-border">
           <div className="w-16 h-16 rounded-full bg-accent text-white flex items-center justify-center text-xl font-bold">

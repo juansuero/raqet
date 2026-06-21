@@ -47,12 +47,13 @@ export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [playerName, setPlayerName] = useState('Player')
+  const [navError, setNavError] = useState('')
 
   useEffect(() => {
     setCollapsed(window.localStorage.getItem('raqet-nav-collapsed') === 'true')
     loadPlayer().then((player) => {
       if (player?.name) setPlayerName(player.name)
-    })
+    }).catch((loadError) => setNavError(loadError instanceof Error ? loadError.message : 'Player profile could not load.'))
   }, [])
 
   const toggleCollapsed = () => {
@@ -97,7 +98,7 @@ export function Sidebar() {
         }`}
       >
         <div className="p-4 border-b border-border">
-          <Link href="/dashboard" className="flex items-center gap-3">
+          <Link href="/dashboard" prefetch={false} className="flex items-center gap-3">
             <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-full bg-background shadow-card border border-border">
               <Image
                 src="/brand/raqet-logo-imagegen.png"
@@ -137,6 +138,7 @@ export function Sidebar() {
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    prefetch={false}
                     onClick={() => setMobileOpen(false)}
                     title={item.label}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
@@ -157,6 +159,11 @@ export function Sidebar() {
         </nav>
 
         <div className="p-4 border-t border-border">
+          {navError && (
+            <p className={`mb-3 rounded-lg bg-danger/5 px-3 py-2 text-xs leading-5 text-danger ${collapsed ? 'lg:hidden' : ''}`}>
+              {navError}
+            </p>
+          )}
           <div className={`flex items-center gap-3 px-3 py-2 ${collapsed ? 'lg:justify-center' : ''}`}>
             <div className="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center text-xs font-bold">
               {initials}

@@ -30,10 +30,15 @@ function formatDate(value: string) {
 export function AiActionLogCard() {
   const [logs, setLogs] = useState<AiActionLog[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     loadAiActionLogs().then((loaded) => {
       setLogs(loaded ?? [])
+      setError('')
+      setLoading(false)
+    }).catch((loadError) => {
+      setError(loadError instanceof Error ? loadError.message : 'AI action log could not load.')
       setLoading(false)
     })
   }, [])
@@ -49,7 +54,8 @@ export function AiActionLogCard() {
 
       <div className="overflow-hidden rounded-card border border-border bg-surface shadow-card divide-y divide-border">
         {loading && <p className="px-5 py-4 text-sm text-muted">Loading recent AI actions...</p>}
-        {!loading && logs.length === 0 && (
+        {!loading && error && <p className="px-5 py-4 text-sm text-danger">{error}</p>}
+        {!loading && !error && logs.length === 0 && (
           <p className="px-5 py-4 text-sm text-muted">No AI actions logged yet.</p>
         )}
         {!loading && logs.map((log) => {

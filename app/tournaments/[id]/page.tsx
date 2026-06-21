@@ -199,14 +199,20 @@ export default function TournamentDetailPage() {
   const [setScores, setSetScores] = useState<SetScore[]>(defaultSetScores)
 
   useEffect(() => {
-    loadPlayer().then(setPlayer)
-    loadOpponents().then((loaded) => setOpponents(loaded ?? []))
-    loadTournaments().then((loaded) => {
-      setTournament((loaded ?? []).find((item) => item.id === tournamentId) ?? null)
-    })
-    loadTournamentMatches().then((loaded) => {
-      setMatches((loaded ?? []).filter((match) => match.tournamentId === tournamentId))
-    })
+    loadPlayer().then(setPlayer).catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Player profile could not load.'))
+    loadOpponents()
+      .then((loaded) => setOpponents(loaded ?? []))
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Opponents could not load.'))
+    loadTournaments()
+      .then((loaded) => {
+        setTournament((loaded ?? []).find((item) => item.id === tournamentId) ?? null)
+      })
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Tournament could not load.'))
+    loadTournamentMatches()
+      .then((loaded) => {
+        setMatches((loaded ?? []).filter((match) => match.tournamentId === tournamentId))
+      })
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Tournament matches could not load.'))
   }, [tournamentId])
 
   const record = useMemo(() => {

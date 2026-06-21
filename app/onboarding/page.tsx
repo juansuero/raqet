@@ -43,11 +43,13 @@ export default function OnboardingPage() {
   }
 
   useEffect(() => {
-    loadPlayer().then((loaded) => {
-      if (!loaded) return
-      setPlayer(loaded)
-      setAnswers((prev) => ({ ...interviewAnswers(loaded.profileInterviewAnswers), ...prev }))
-    })
+    loadPlayer()
+      .then((loaded) => {
+        if (!loaded) return
+        setPlayer(loaded)
+        setAnswers((prev) => ({ ...interviewAnswers(loaded.profileInterviewAnswers), ...prev }))
+      })
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Player profile could not load.'))
   }, [])
 
   useEffect(() => {

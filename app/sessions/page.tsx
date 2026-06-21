@@ -5,10 +5,10 @@ import Link from 'next/link'
 import { AppShell } from '@/components/AppShell'
 import { PageHeader } from '@/components/PageHeader'
 import { EmptyState } from '@/components/EmptyState'
-import { deleteSession, loadPlayer, loadSessions } from '@/lib/api'
-import type { Player, Session } from '@/lib/data'
+import { deleteSession, loadClips, loadPlayer, loadSessions } from '@/lib/api'
+import type { Clip, Player, Session } from '@/lib/data'
 import { legacyScoreToMatchScore, normalizeMatchScore, scoreCell } from '@/lib/match-score'
-import { Plus, Search, Filter, BookOpen, Clock, Zap, TrendingUp, Pencil, Trash2, CalendarDays } from 'lucide-react'
+import { Plus, Search, Filter, BookOpen, Clock, Zap, TrendingUp, Pencil, Trash2, CalendarDays, Video } from 'lucide-react'
 
 const sessionTypes = ['all', 'training', 'match', 'class', 'tournament', 'fitness']
 const sortOptions = [
@@ -24,6 +24,29 @@ function sessionMetaParts(session: Session) {
     session.surface,
     session.location,
   ].filter(Boolean)
+}
+
+function sessionTitle(session: Session) {
+  return String(session.title || session.mainFocus || session.aiSummary || session.rawNotes || 'Untitled session')
+}
+
+function sessionTags(session: Session) {
+  return Array.isArray(session.tags) ? session.tags.map(String).filter(Boolean) : []
+}
+
+function sessionTypeLabel(session: Session) {
+  if (session.type === 'match') return 'Practice match'
+  if (sessionTypes.includes(session.type)) return session.type
+  return 'Legacy'
+}
+
+function metricValue(value: unknown) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : 0
+}
+
+function lower(value: unknown) {
+  return String(value ?? '').toLowerCase()
 }
 
 function PracticeScoreboard({ session, playerName }: { session: Session; playerName: string }) {
@@ -50,24 +73,32 @@ function PracticeScoreboard({ session, playerName }: { session: Session; playerN
 
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<Session[]>([])
+  const [clips, setClips] = useState<Clip[]>([])
   const [player, setPlayer] = useState<Player | null>(null)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [sortBy, setSortBy] = useState('date-desc')
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadSessions().then((loaded) => {
-      setSessions(loaded ?? [])
-    })
-    loadPlayer().then(setPlayer)
+    Promise.all([loadSessions(), loadClips(), loadPlayer()])
+      .then(([loadedSessions, loadedClips, loadedPlayer]) => {
+        setSessions(loadedSessions ?? [])
+        setClips(loadedClips ?? [])
+        setPlayer(loadedPlayer)
+        setError('')
+      })
+      .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Sessions could not load.'))
+      .finally(() => setLoading(false))
   }, [])
 
   let filtered = sessions.filter((s) => {
+    const query = lower(search)
     const matchesSearch =
-      s.title.toLowerCase().includes(search.toLowerCase()) ||
-      s.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()))
+      lower(sessionTitle(s)).includes(query) ||
+      sessionTags(s).some((t) => lower(t).includes(query))
     const matchesType = typeFilter === 'all' || s.type === typeFilter
     return matchesSearch && matchesType
   })
@@ -75,8 +106,8 @@ export default function SessionsPage() {
   filtered = [...filtered].sort((a, b) => {
     if (sortBy === 'date-desc') return new Date(b.date).getTime() - new Date(a.date).getTime()
     if (sortBy === 'date-asc') return new Date(a.date).getTime() - new Date(b.date).getTime()
-    if (sortBy === 'intensity') return b.intensity - a.intensity
-    if (sortBy === 'confidence') return b.confidence - a.confidence
+    if (sortBy === 'intensity') return metricValue(b.intensity) - metricValue(a.intensity)
+    if (sortBy === 'confidence') return metricValue(b.confidence) - metricValue(a.confidence)
     return 0
   })
 
@@ -95,7 +126,7 @@ export default function SessionsPage() {
     <AppShell title="Sessions" subtitle="Your training journal and match history">
       <PageHeader
         title="Session Journal"
-        subtitle={`${sessions.length} sessions logged`}
+        subtitle={loading ? 'Loading sessions...' : `${sessions.length} sessions logged`}
         action={
           <Link
             href="/sessions/new"
@@ -150,7 +181,26 @@ export default function SessionsPage() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="space-y-3">
+          {[0, 1, 2].map((item) => (
+            <div key={item} className="animate-pulse rounded-card border border-border bg-surface p-5 shadow-card">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="h-5 w-48 max-w-full rounded bg-border" />
+                  <div className="mt-3 h-4 w-72 max-w-full rounded bg-border" />
+                  <div className="mt-4 flex gap-4">
+                    <div className="h-4 w-20 rounded bg-border" />
+                    <div className="h-4 w-24 rounded bg-border" />
+                    <div className="h-4 w-24 rounded bg-border" />
+                  </div>
+                </div>
+                <div className="h-6 w-20 shrink-0 rounded-full bg-border" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
         <EmptyState
           title="No sessions found"
           description="Try adjusting your filters or log your first session."
@@ -179,14 +229,14 @@ export default function SessionsPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <h2 className="min-w-0 truncate font-semibold text-foreground">{session.title}</h2>
+                    <h2 className="min-w-0 truncate font-semibold text-foreground">{sessionTitle(session)}</h2>
                     {session.status === 'planned' && (
                       <span className="inline-flex flex-shrink-0 items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-warning/10 text-warning uppercase tracking-label">
                         Scheduled
                       </span>
                     )}
                     <span className="inline-flex flex-shrink-0 items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-accent-light text-accent uppercase tracking-label">
-                      {session.type}
+                      {sessionTypeLabel(session)}
                     </span>
                   </div>
                   <p className="flex max-w-[54ch] flex-wrap gap-x-2 gap-y-1 text-sm text-muted">
@@ -200,17 +250,17 @@ export default function SessionsPage() {
                   <div className="flex flex-wrap items-center gap-4 mt-3">
                     <div className="flex items-center gap-1.5 text-sm text-muted">
                       {session.status === 'planned' ? <CalendarDays className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-                      {session.durationMinutes} min
+                      {metricValue(session.durationMinutes)} min
                     </div>
                     {session.status !== 'planned' && (
                       <>
                         <div className="flex items-center gap-1.5 text-sm text-muted">
                           <Zap className="w-4 h-4" />
-                          Intensity {session.intensity}/10
+                          Intensity {metricValue(session.intensity)}/10
                         </div>
                         <div className="flex items-center gap-1.5 text-sm text-muted">
                           <TrendingUp className="w-4 h-4" />
-                          Confidence {session.confidence}/10
+                          Confidence {metricValue(session.confidence)}/10
                         </div>
                       </>
                     )}
@@ -225,7 +275,7 @@ export default function SessionsPage() {
                     <p className="text-sm text-muted mt-2 line-clamp-2">{session.aiSummary}</p>
                   )}
                   <div className="flex items-center gap-2 mt-3">
-                    {session.tags.map((tag) => (
+                    {sessionTags(session).map((tag) => (
                       <span
                         key={tag}
                         className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-background text-muted border border-border"
@@ -240,6 +290,12 @@ export default function SessionsPage() {
                     <span className="flex items-center gap-1 text-[10px] font-medium text-accent bg-accent-light px-2 py-1 rounded-full">
                       <BookOpen className="w-3 h-3" />
                       AI Debrief
+                    </span>
+                  )}
+                  {clips.some((c) => c.sessionId === session.id) && (
+                    <span className="flex items-center gap-1 text-[10px] font-medium text-muted bg-background px-2 py-1 rounded-full border border-border">
+                      <Video className="w-3 h-3" />
+                      Has review
                     </span>
                   )}
                 </div>

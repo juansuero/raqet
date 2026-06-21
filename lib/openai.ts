@@ -1,5 +1,5 @@
-import { AI_COACH_SYSTEM_PROMPT, CLIP_ANALYSIS_SYSTEM_PROMPT, PLAYER_PROFILE_COMPILER_SYSTEM_PROMPT, SESSION_VOICE_DEBRIEF_SYSTEM_PROMPT } from '@/lib/ai-prompts'
-import type { ClipAnalysis, Player } from '@/lib/data'
+import { AI_COACH_SYSTEM_PROMPT, CLIP_ANALYSIS_SYSTEM_PROMPT, PATTERN_GENERATION_SYSTEM_PROMPT, PLAYER_PROFILE_COMPILER_SYSTEM_PROMPT, SESSION_VOICE_DEBRIEF_SYSTEM_PROMPT, TRAINING_BLOCK_GENERATION_SYSTEM_PROMPT } from '@/lib/ai-prompts'
+import type { ClipAnalysis, Pattern, Player, TrainingBlock } from '@/lib/data'
 import type { CompiledPlayerProfile, PlayerInterviewAnswers } from '@/lib/player-profile'
 import { generateAiText, generateAiVideoJson, redactAiSecrets, transcribeAudioWithProvider } from '@/lib/ai-provider'
 
@@ -377,4 +377,52 @@ export async function generateCoachReply(message: string, context: string) {
   } catch (error) {
     throw new Error(aiErrorMessage(error, 'Coach response'))
   }
+}
+
+export async function generatePatternDrafts(context: string): Promise<Array<Omit<Pattern, 'id' | 'playerId' | 'relatedClipIds' | 'status'>>> {
+  const parsed = await generateJson<{ patterns?: Array<Partial<Pattern>> }>({
+    action: 'Pattern generation',
+    systemInstruction: PATTERN_GENERATION_SYSTEM_PROMPT,
+    userContent: context,
+  })
+
+  return Array.isArray(parsed.patterns)
+    ? parsed.patterns.map((item) => ({
+      title: String(item.title || '').trim(),
+      description: String(item.description || '').trim(),
+      category: item.category || 'tactical',
+      evidenceCount: Number(item.evidenceCount || 0),
+      confidence: item.confidence || 'low',
+      trend: item.trend || 'new',
+      lastSeen: String(item.lastSeen || new Date().toISOString().slice(0, 10)),
+      relatedSessionIds: Array.isArray(item.relatedSessionIds) ? item.relatedSessionIds.map(String) : [],
+      relatedTournamentMatchIds: Array.isArray(item.relatedTournamentMatchIds) ? item.relatedTournamentMatchIds.map(String) : [],
+      recommendation: String(item.recommendation || '').trim(),
+      evidenceSummary: String(item.evidenceSummary || '').trim(),
+      uncertainty: String(item.uncertainty || '').trim(),
+      memoryId: item.memoryId,
+    })).filter((item) => item.title && item.description && item.evidenceCount > 0)
+    : []
+}
+
+export async function generateTrainingBlockDrafts(context: string): Promise<Array<Omit<TrainingBlock, 'id' | 'playerId' | 'status' | 'source' | 'createdAt' | 'updatedAt'>>> {
+  const parsed = await generateJson<{ blocks?: Array<Partial<TrainingBlock>> }>({
+    action: 'Training block generation',
+    systemInstruction: TRAINING_BLOCK_GENERATION_SYSTEM_PROMPT,
+    userContent: context,
+  })
+
+  return Array.isArray(parsed.blocks)
+    ? parsed.blocks.map((item) => ({
+      patternId: item.patternId || undefined,
+      title: String(item.title || '').trim(),
+      objective: String(item.objective || '').trim(),
+      category: item.category || 'tactical',
+      priority: item.priority || 'medium',
+      durationMinutes: Number(item.durationMinutes || 30),
+      instructions: Array.isArray(item.instructions) ? item.instructions.map(String).filter(Boolean).slice(0, 6) : [],
+      successCriteria: Array.isArray(item.successCriteria) ? item.successCriteria.map(String).filter(Boolean).slice(0, 5) : [],
+      evidenceSummary: String(item.evidenceSummary || '').trim(),
+    })).filter((item) => item.title && item.objective)
+    : []
 }

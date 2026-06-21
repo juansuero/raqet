@@ -1,0 +1,34 @@
+name: Feature request
+description: Suggest a focused improvement for the self-hosted solo app
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the smallest useful version.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Onboarding/profile
+        - Sessions
+        - Clips/video
+        - Patterns/training plan
+        - Import/export
+        - AI
+        - Docs/setup
+        - Other
+    validations:
+      required: true

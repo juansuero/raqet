@@ -4,26 +4,34 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AppShell } from '@/components/AppShell'
-import { StatCard } from '@/components/StatCard'
+import { StatCard, StatCardSkeleton } from '@/components/StatCard'
 import { EmptyState } from '@/components/EmptyState'
-import { loadMemories, loadPlayer, loadSessions } from '@/lib/api'
-import type { MemoryItem, Player, Session } from '@/lib/data'
-import { BookOpen, Calendar, FileText, Plus, Target } from 'lucide-react'
+import { loadClips, loadMemories, loadPlayer, loadSessions } from '@/lib/api'
+import type { Clip, MemoryItem, Player, Session } from '@/lib/data'
+import { BookOpen, Calendar, FileText, Plus, Target, Video } from 'lucide-react'
 
 export default function DashboardPage() {
   const router = useRouter()
   const [player, setPlayer] = useState<Player | null>(null)
   const [sessions, setSessions] = useState<Session[]>([])
+  const [clips, setClips] = useState<Clip[]>([])
   const [memories, setMemories] = useState<MemoryItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
   useEffect(() => {
-    loadPlayer().then((loaded) => {
-      setPlayer(loaded)
-      if (loaded && !loaded.profileMarkdown) router.replace('/onboarding')
-    })
-    loadSessions().then((loaded) => setSessions(loaded ?? []))
-    loadMemories().then((loaded) => setMemories(loaded ?? []))
-  }, [])
+    Promise.all([loadPlayer(), loadSessions(), loadClips(), loadMemories()])
+      .then(([loadedPlayer, loadedSessions, loadedClips, loadedMemories]) => {
+        setPlayer(loadedPlayer)
+        setSessions(loadedSessions ?? [])
+        setClips(loadedClips ?? [])
+        setMemories(loadedMemories ?? [])
+        setLoadError('')
+        if (loadedPlayer && !loadedPlayer.profileMarkdown) router.replace('/onboarding')
+      })
+      .catch((error) => setLoadError(error instanceof Error ? error.message : 'Dashboard could not load.'))
+      .finally(() => setLoading(false))
+  }, [router])
 
   const confirmedMemories = memories.filter((memory) => memory.status === 'confirmed')
   const pendingMemories = memories.filter((memory) => memory.status === 'pending')
@@ -33,13 +41,45 @@ export default function DashboardPage() {
       title="Dashboard"
       subtitle={player?.profileMarkdown ? `Welcome back, ${player.name.split(' ')[0]}.` : 'Build your player profile to start.'}
     >
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <StatCard title="Sessions" value={sessions.length} subtitle="logged" icon={<BookOpen className="w-4 h-4" />} />
-        <StatCard title="Memories" value={confirmedMemories.length} subtitle="approved" icon={<Target className="w-4 h-4" />} />
-        <StatCard title="Pending" value={pendingMemories.length} subtitle="memory suggestions" icon={<Calendar className="w-4 h-4" />} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {loading ? (
+          <>
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+          </>
+        ) : (
+          <>
+            <StatCard title="Sessions" value={sessions.length} subtitle="logged" icon={<BookOpen className="w-4 h-4" />} />
+            <StatCard title="Clips" value={clips.length} subtitle="local" icon={<Video className="w-4 h-4" />} />
+            <StatCard title="Memories" value={confirmedMemories.length} subtitle="approved" icon={<Target className="w-4 h-4" />} />
+            <StatCard title="Pending" value={pendingMemories.length} subtitle="memory suggestions" icon={<Calendar className="w-4 h-4" />} />
+          </>
+        )}
       </div>
 
-      {!player?.profileMarkdown ? (
+      {loadError ? (
+        <EmptyState title="Dashboard could not load" description={loadError} />
+      ) : loading ? (
+        <div className="grid animate-pulse gap-6 lg:grid-cols-3">
+          <div className="rounded-card border border-border bg-surface p-5 shadow-card lg:col-span-2">
+            <div className="h-5 w-36 rounded bg-border" />
+            <div className="mt-5 h-4 w-48 rounded bg-border" />
+            <div className="mt-3 h-4 w-64 max-w-full rounded bg-border" />
+            <div className="mt-5 h-4 w-full rounded bg-border" />
+            <div className="mt-2 h-4 w-3/4 rounded bg-border" />
+          </div>
+          <div className="rounded-card border border-border bg-surface p-5 shadow-card">
+            <div className="h-5 w-32 rounded bg-border" />
+            <div className="mt-5 space-y-4">
+              <div className="h-4 w-full rounded bg-border" />
+              <div className="h-4 w-5/6 rounded bg-border" />
+              <div className="h-4 w-2/3 rounded bg-border" />
+            </div>
+          </div>
+        </div>
+      ) : !player?.profileMarkdown ? (
         <EmptyState
           title="Start with your player profile"
           description="Raqet works best when it knows your game, training context, goals, and feedback style."

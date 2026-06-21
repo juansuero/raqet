@@ -68,7 +68,7 @@ export default function CoachPage() {
     loadPlayer().then((loaded) => {
       setPlayer(loaded)
       setPreferences(loaded?.coachPreferences ?? defaultCoachPreferences)
-    })
+    }).catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Player profile could not load.'))
     loadCoachMessages()
       .then((loaded) => setMessages(loaded ?? []))
       .catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Coach messages load failed'))

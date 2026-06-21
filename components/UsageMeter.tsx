@@ -19,13 +19,23 @@ function formatResetDate(value: string) {
 
 export function UsageMeter({ compact = false }: { compact?: boolean }) {
   const [usage, setUsage] = useState<Usage | null>(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     loadUsage().then((loaded) => {
       if (loaded) setUsage(loaded)
-    })
+      setError('')
+    }).catch((loadError) => setError(loadError instanceof Error ? loadError.message : 'Usage data could not load.'))
   }, [])
 
+  if (!usage && !error) return null
+  if (error) {
+    return (
+      <section className={compact ? 'px-3 py-2' : 'rounded-card border border-danger/20 bg-danger/5 p-5 shadow-card'}>
+        <p className="text-xs leading-relaxed text-danger">{error}</p>
+      </section>
+    )
+  }
   if (!usage) return null
 
   const percent = usage.limit > 0 ? Math.min(100, Math.round((usage.used / usage.limit) * 100)) : 0
