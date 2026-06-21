@@ -7,7 +7,23 @@ This guide installs Raqet as a local self-hosted solo app.
 - Node.js 22 or newer.
 - npm.
 - Optional: `ffmpeg` and `ffprobe` for video probing, clip export, highlight export, and 9:16 reel export.
-- Optional: Gemini or OpenAI API key for AI actions.
+- Optional: Gemini or OpenAI API key if you want the built-in AI actions.
+
+## AI-Assisted Install
+
+If you use an AI coding assistant, you can just copy this repo's link into your AI and ask it to install it:
+
+```text
+https://github.com/juansuero/raqet
+```
+
+A useful prompt:
+
+```text
+Install this repo locally, run the setup commands, start the app, and tell me the local URL.
+```
+
+The manual commands are below.
 
 ## Local Setup
 

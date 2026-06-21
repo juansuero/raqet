@@ -12,14 +12,34 @@ The open-source baseline is local-first:
 
 Teams, coach roster workflows, hosted beta invites, hosted analytics/monitoring, and managed usage limits are excluded from the default self-hosted solo release.
 
+## Screenshots
+
+![Raqet dashboard with demo sessions and player summary](docs/images/dashboard.png)
+
+![Import a hosted or self-hosted JSON export from onboarding](docs/images/onboarding-import.png)
+
+![Review approved player patterns](docs/images/patterns.png)
+
+![Local video review and point clipping workspace](docs/images/clips.png)
+
 ## Requirements
 
 - Node.js 22 or newer. Raqet uses Node's built-in SQLite module.
 - npm.
 - Optional: `ffmpeg` and `ffprobe` on `PATH` for video duration probing and clip/reel export.
-- Optional: a Gemini or OpenAI API key for AI actions.
+- Optional: a Gemini or OpenAI API key if you want the built-in AI actions.
 
 ## Quick Start
+
+If you use an AI coding assistant, the easiest path is to copy this repository link into your AI and ask it to install it:
+
+```text
+https://github.com/juansuero/raqet
+```
+
+Tell it: "Install this repo locally, run the setup commands, and start the app."
+
+Manual setup:
 
 1. Install dependencies:
 
@@ -97,19 +117,28 @@ See [docs/IMPORT_EXPORT.md](docs/IMPORT_EXPORT.md).
 
 AI is optional. Journaling, manual video review, stats, memories, settings, import, and export work without a provider.
 
-Gemini:
+The environment variables below matter only when you want Raqet's built-in AI features. They select which adapter the app should call and provide that provider's API key.
+
+Currently implemented adapters:
+
+- `gemini`
+- `openai`
+
+Use Gemini:
 
 ```powershell
 $env:RAQET_AI_PROVIDER="gemini"
 $env:GEMINI_API_KEY="your-key"
 ```
 
-OpenAI:
+Use OpenAI:
 
 ```powershell
 $env:RAQET_AI_PROVIDER="openai"
 $env:OPENAI_API_KEY="your-key"
 ```
+
+If you want a different provider, leave AI disabled or add a new provider adapter in `lib/ai-provider.ts`. The local journal, import/export, and video workflow do not depend on Gemini or OpenAI.
 
 Set `RAQET_AI_DISABLED=true` to force the no-provider path even if keys exist in your shell or `.env`.
 

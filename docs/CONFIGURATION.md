@@ -25,6 +25,10 @@ Do not commit `.env`.
 
 AI is optional.
 
+These variables matter only if you want Raqet's built-in AI actions, such as profile drafting, session debriefs, coach replies, pattern drafts, training block drafts, transcription, or selected exported clip analysis.
+
+`RAQET_AI_PROVIDER` chooses the implemented adapter. The API key gives that adapter permission to call the external provider from your own account.
+
 | Variable | Purpose |
 | --- | --- |
 | `RAQET_AI_DISABLED=true` | Force all AI actions off. |
@@ -35,6 +39,10 @@ AI is optional.
 | `OPENAI_API_KEY` | OpenAI API key. |
 | `OPENAI_MODEL` | OpenAI text model. |
 | `OPENAI_TRANSCRIPTION_MODEL` | OpenAI transcription model. |
+
+Currently supported provider values are `gemini` and `openai`.
+
+If you want another provider, keep AI disabled or add another adapter in `lib/ai-provider.ts`. The local app does not require Gemini or OpenAI for journaling, import/export, stats, memory, or video review.
 
 External provider costs, retention policies, and API key security are the operator's responsibility.
 
