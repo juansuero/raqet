@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import { transcribeAudio } from '@/lib/openai'
+import { transcribeAudio } from '@/lib/ai'
 import { hasConfiguredAiProvider } from '@/lib/ai-provider'
 
 export async function POST(request: Request) {
   try {
     if (!hasConfiguredAiProvider()) {
-      return NextResponse.json({ error: 'Voice transcription needs a local AI API key.' }, { status: 503 })
+      return NextResponse.json({ error: 'Voice transcription needs an AI endpoint plus RAQET_AI_TRANSCRIPTION_MODEL.' }, { status: 503 })
     }
 
     const form = await request.formData()

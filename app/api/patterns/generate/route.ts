@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { hasConfiguredAiProvider } from '@/lib/ai-provider'
-import { generatePatternDrafts } from '@/lib/openai'
+import { generatePatternDrafts } from '@/lib/ai'
 import { listSoloMemories, listSoloPatterns, listSoloSessions, listSoloTournamentMatches, loadSoloPlayer, saveSoloPattern, soloUser } from '@/lib/solo-store'
 
 export const runtime = 'nodejs'
@@ -8,7 +8,7 @@ export const maxDuration = 60
 
 export async function POST() {
   try {
-    if (!hasConfiguredAiProvider()) return NextResponse.json({ error: 'AI provider is not configured. Set GEMINI_API_KEY or OPENAI_API_KEY, then try again.' }, { status: 503 })
+    if (!hasConfiguredAiProvider()) return NextResponse.json({ error: 'AI endpoint is not configured. Set RAQET_AI_API_KEY, RAQET_AI_BASE_URL, and RAQET_AI_MODEL, then try again.' }, { status: 503 })
 
     const profile = loadSoloPlayer()
     const completedSessions = listSoloSessions().filter((session) => session.status !== 'planned').slice(0, 30)

@@ -1,6 +1,4 @@
-import { GoogleGenAI } from '@google/genai'
-
-export type AiProviderId = 'gemini' | 'openai'
+export type AiProviderId = 'external-http'
 
 export type AiProviderStatus = {
   configured: boolean
@@ -37,70 +35,96 @@ type GenerateVideoOptions = {
   temperature?: number
 }
 
-const DEFAULT_GEMINI_MODEL = 'gemini-flash-latest'
-const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini'
-const DEFAULT_OPENAI_TRANSCRIPTION_MODEL = 'gpt-4o-mini-transcribe'
+type ExternalAiConfig = {
+  apiKey: string
+  baseUrl: string
+  textEndpoint: string
+  transcriptionEndpoint: string
+  videoEndpoint: string
+  model: string
+  transcriptionModel: string
+  videoModel: string
+}
 
 export function redactAiSecrets(value: string) {
   return value
-    .replace(/AIza[0-9A-Za-z_-]+/g, '[redacted_gemini_key]')
-    .replace(/sk-[A-Za-z0-9_-]+/g, '[redacted_openai_key]')
-    .replace(/gsk_[A-Za-z0-9_-]+/g, '[redacted_groq_key]')
-    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [redacted_token]')
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [redacted_token]')
+    .replace(/\b[A-Za-z0-9_-]{24,}\.[A-Za-z0-9._-]{12,}\b/g, '[redacted_token]')
+    .replace(/\b(?:sk|gsk|rk|xai)-[A-Za-z0-9_-]+/gi, '[redacted_ai_key]')
+    .replace(/\bAIza[0-9A-Za-z_-]+/g, '[redacted_ai_key]')
 }
 
-function normalizeProvider(value: string | undefined): AiProviderId | null {
-  const normalized = (value || '').trim().toLowerCase()
-  if (normalized === 'gemini' || normalized === 'google') return 'gemini'
-  if (normalized === 'openai') return 'openai'
-  return null
+function clean(value: string | undefined) {
+  return (value || '').trim()
 }
 
-export function selectedAiProvider(): AiProviderId | null {
-  if (process.env.RAQET_AI_DISABLED === 'true') return null
-  const explicit = normalizeProvider(process.env.RAQET_AI_PROVIDER)
-  if (explicit) return explicit
-  if (process.env.GEMINI_API_KEY) return 'gemini'
-  if (process.env.OPENAI_API_KEY) return 'openai'
-  return null
+function trimTrailingSlash(value: string) {
+  return value.replace(/\/+$/, '')
+}
+
+function joinUrl(baseUrl: string, path: string) {
+  return `${trimTrailingSlash(baseUrl)}${path.startsWith('/') ? path : `/${path}`}`
+}
+
+function externalAiConfig(): ExternalAiConfig {
+  const baseUrl = clean(process.env.RAQET_AI_BASE_URL)
+  return {
+    apiKey: clean(process.env.RAQET_AI_API_KEY),
+    baseUrl,
+    textEndpoint: clean(process.env.RAQET_AI_TEXT_ENDPOINT) || (baseUrl ? joinUrl(baseUrl, '/chat/completions') : ''),
+    transcriptionEndpoint: clean(process.env.RAQET_AI_TRANSCRIPTION_ENDPOINT) || (baseUrl ? joinUrl(baseUrl, '/audio/transcriptions') : ''),
+    videoEndpoint: clean(process.env.RAQET_AI_VIDEO_ENDPOINT),
+    model: clean(process.env.RAQET_AI_MODEL),
+    transcriptionModel: clean(process.env.RAQET_AI_TRANSCRIPTION_MODEL),
+    videoModel: clean(process.env.RAQET_AI_VIDEO_MODEL) || clean(process.env.RAQET_AI_MODEL),
+  }
+}
+
+function textMissingEnv(config = externalAiConfig()) {
+  return [
+    config.apiKey ? null : 'RAQET_AI_API_KEY',
+    config.baseUrl || config.textEndpoint ? null : 'RAQET_AI_BASE_URL or RAQET_AI_TEXT_ENDPOINT',
+    config.model ? null : 'RAQET_AI_MODEL',
+  ].filter(Boolean) as string[]
+}
+
+function hasAnyAiEnv(config = externalAiConfig()) {
+  return Boolean(
+    config.apiKey ||
+    config.baseUrl ||
+    config.textEndpoint ||
+    config.transcriptionEndpoint ||
+    config.videoEndpoint ||
+    config.model ||
+    config.transcriptionModel
+  )
 }
 
 export function aiProviderStatus(): AiProviderStatus {
-  const provider = selectedAiProvider()
-  if (!provider) {
+  if (process.env.RAQET_AI_DISABLED === 'true') {
     return {
       configured: false,
       provider: null,
       model: null,
       source: 'env',
-      missingEnv: ['RAQET_AI_PROVIDER plus provider API key, or GEMINI_API_KEY / OPENAI_API_KEY'],
+      missingEnv: [],
       supportsAudioTranscription: false,
       supportsVideoAnalysis: false,
     }
   }
 
-  if (provider === 'gemini') {
-    const configured = Boolean(process.env.GEMINI_API_KEY)
-    return {
-      configured,
-      provider,
-      model: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL,
-      source: 'env',
-      missingEnv: configured ? [] : ['GEMINI_API_KEY'],
-      supportsAudioTranscription: configured,
-      supportsVideoAnalysis: configured,
-    }
-  }
+  const config = externalAiConfig()
+  const missingEnv = textMissingEnv(config)
+  const configured = missingEnv.length === 0
 
-  const configured = Boolean(process.env.OPENAI_API_KEY)
   return {
     configured,
-    provider,
-    model: process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
+    provider: configured || hasAnyAiEnv(config) ? 'external-http' : null,
+    model: config.model || null,
     source: 'env',
-    missingEnv: configured ? [] : ['OPENAI_API_KEY'],
-    supportsAudioTranscription: configured,
-    supportsVideoAnalysis: false,
+    missingEnv,
+    supportsAudioTranscription: configured && Boolean(config.transcriptionEndpoint && config.transcriptionModel),
+    supportsVideoAnalysis: configured && Boolean(config.videoEndpoint),
   }
 }
 
@@ -108,12 +132,13 @@ export function hasConfiguredAiProvider() {
   return aiProviderStatus().configured
 }
 
-function configuredProvider(): AiProviderId {
-  const status = aiProviderStatus()
-  if (!status.configured || !status.provider) {
-    throw new AiProviderError(`AI is optional and no provider is configured. Set ${status.missingEnv.join(', ')} to enable this action.`, 503)
+function configuredExternalAi() {
+  const config = externalAiConfig()
+  const missingEnv = textMissingEnv(config)
+  if (missingEnv.length > 0) {
+    throw new AiProviderError(`AI is optional and no endpoint is configured. Set ${missingEnv.join(', ')} to enable this action.`, 503)
   }
-  return status.provider
+  return config
 }
 
 function normalizeProviderError(error: unknown, action: string) {
@@ -123,155 +148,146 @@ function normalizeProviderError(error: unknown, action: string) {
   return new AiProviderError(`${action} failed${status ? ` (${status})` : ''}: ${redactAiSecrets(raw)}`, status || 503)
 }
 
-async function generateWithGemini(options: GenerateOptions) {
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) throw new AiProviderError('Gemini is selected but GEMINI_API_KEY is not configured.', 503)
-  const client = new GoogleGenAI({ apiKey })
-  const response = await client.models.generateContent({
-    model: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL,
-    contents: options.userContent,
-    config: {
-      systemInstruction: options.systemInstruction,
-      temperature: options.temperature ?? 0.2,
-      responseMimeType: options.json ? 'application/json' : undefined,
-    },
-  })
-  return String(response.text || '').trim()
+async function readJsonResponse(response: Response, action: string) {
+  const data = await response.json().catch(() => null)
+  if (!response.ok) {
+    const message = data?.error?.message || data?.message || response.statusText || 'unknown error'
+    throw new AiProviderError(`${action} failed (${response.status}): ${redactAiSecrets(String(message))}`, response.status)
+  }
+  return data
 }
 
-async function generateWithOpenAi(options: GenerateOptions) {
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) throw new AiProviderError('OpenAI is selected but OPENAI_API_KEY is not configured.', 503)
+function stringifyContent(content: unknown): string {
+  if (typeof content === 'string') return content
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (typeof item === 'string') return item
+        if (item && typeof item === 'object') {
+          const record = item as Record<string, unknown>
+          return record.text || record.value || ''
+        }
+        return ''
+      })
+      .join('')
+      .trim()
+  }
+  return ''
+}
 
+function extractText(data: unknown) {
+  if (!data || typeof data !== 'object') return ''
+  const record = data as Record<string, unknown>
+  if (typeof record.text === 'string') return record.text.trim()
+  if (typeof record.result === 'string') return record.result.trim()
+  if (typeof record.output_text === 'string') return record.output_text.trim()
+
+  const choices = Array.isArray(record.choices) ? record.choices : []
+  const firstChoice = choices[0] as Record<string, unknown> | undefined
+  if (firstChoice) {
+    const message = firstChoice.message as Record<string, unknown> | undefined
+    const messageText = stringifyContent(message?.content)
+    if (messageText) return messageText
+    if (typeof firstChoice.text === 'string') return firstChoice.text.trim()
+  }
+
+  const output = Array.isArray(record.output) ? record.output : []
+  const outputText = output.map((item) => stringifyContent((item as Record<string, unknown>)?.content)).join('').trim()
+  return outputText
+}
+
+async function generateWithExternalHttp(options: GenerateOptions) {
+  const config = configuredExternalAi()
   const messages = [
     options.systemInstruction ? { role: 'system', content: options.systemInstruction } : null,
     { role: 'user', content: options.userContent },
   ].filter(Boolean)
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetch(config.textEndpoint, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
+      model: config.model,
       messages,
       temperature: options.temperature ?? 0.2,
       response_format: options.json ? { type: 'json_object' } : undefined,
     }),
   })
 
-  const data = await response.json().catch(() => null)
-  if (!response.ok) {
-    throw new AiProviderError(`OpenAI request failed (${response.status}): ${redactAiSecrets(String(data?.error?.message || response.statusText || 'unknown error'))}`, response.status)
-  }
-
-  return String(data?.choices?.[0]?.message?.content || '').trim()
+  const data = await readJsonResponse(response, 'AI request')
+  const text = extractText(data)
+  if (!text) throw new AiProviderError('AI request returned an empty response.', 502)
+  return text
 }
 
 export async function generateAiText(options: GenerateOptions) {
-  const provider = configuredProvider()
   try {
-    return provider === 'gemini'
-      ? await generateWithGemini(options)
-      : await generateWithOpenAi(options)
+    return await generateWithExternalHttp(options)
   } catch (error) {
     throw normalizeProviderError(error, 'AI request')
   }
 }
 
 export async function generateAiVideoJson(options: GenerateVideoOptions) {
-  const provider = configuredProvider()
-  if (provider !== 'gemini') {
-    throw new AiProviderError('Selected clip video analysis currently requires Gemini. OpenAI remains available for text and session actions.', 400)
+  const config = configuredExternalAi()
+  if (!config.videoEndpoint) {
+    throw new AiProviderError('Selected clip video analysis needs RAQET_AI_VIDEO_ENDPOINT. Text AI remains available through the configured endpoint.', 400)
   }
 
   try {
-    const apiKey = process.env.GEMINI_API_KEY
-    if (!apiKey) throw new AiProviderError('Gemini is selected but GEMINI_API_KEY is not configured.', 503)
-    const client = new GoogleGenAI({ apiKey })
-    const response = await client.models.generateContent({
-      model: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL,
-      contents: [
-        {
-          inlineData: {
-            mimeType: options.mimeType,
-            data: options.dataBase64,
-          },
-        },
-        { text: options.text },
-      ],
-      config: {
-        systemInstruction: options.systemInstruction,
-        temperature: options.temperature ?? 0.2,
-        responseMimeType: 'application/json',
+    const response = await fetch(config.videoEndpoint, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        model: config.videoModel,
+        systemInstruction: options.systemInstruction,
+        mimeType: options.mimeType,
+        dataBase64: options.dataBase64,
+        text: options.text,
+        temperature: options.temperature ?? 0.2,
+        responseFormat: 'json',
+      }),
     })
-    return String(response.text || '').trim()
+
+    const data = await readJsonResponse(response, 'Selected clip analysis')
+    const text = extractText(data)
+    if (!text) throw new AiProviderError('Selected clip analysis returned an empty response.', 502)
+    return text
   } catch (error) {
     throw normalizeProviderError(error, 'Selected clip analysis')
   }
 }
 
-export async function transcribeAudioWithProvider(file: File, mimeType: string) {
-  const provider = configuredProvider()
-
-  if (provider === 'gemini') {
-    try {
-      const apiKey = process.env.GEMINI_API_KEY
-      if (!apiKey) throw new AiProviderError('Gemini is selected but GEMINI_API_KEY is not configured.', 503)
-      const client = new GoogleGenAI({ apiKey })
-      const audioData = Buffer.from(await file.arrayBuffer()).toString('base64')
-      const response = await client.models.generateContent({
-        model: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL,
-        contents: [
-          {
-            inlineData: {
-              mimeType,
-              data: audioData,
-            },
-          },
-          {
-            text: [
-              'You are a strict speech-to-text engine, not a creative assistant.',
-              'Transcribe only words that are clearly spoken in the attached audio.',
-              'Never infer, summarize, complete, translate, or invent tennis content.',
-              'If the audio is silent, too short, malformed, or unclear, set speechPresent to false and transcript to an empty string.',
-              'Return JSON only with this exact shape:',
-              '{"speechPresent":false,"confidence":0,"transcript":""}',
-            ].join(' '),
-          },
-        ],
-        config: {
-          temperature: 0,
-          responseMimeType: 'application/json',
-        },
-      })
-      return String(response.text || '{}')
-    } catch (error) {
-      throw normalizeProviderError(error, 'Transcription')
-    }
+export async function transcribeAudioWithProvider(file: File) {
+  const config = configuredExternalAi()
+  if (!config.transcriptionEndpoint || !config.transcriptionModel) {
+    throw new AiProviderError('Audio transcription needs RAQET_AI_TRANSCRIPTION_MODEL and either RAQET_AI_BASE_URL or RAQET_AI_TRANSCRIPTION_ENDPOINT.', 503)
   }
 
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) throw new AiProviderError('OpenAI is selected but OPENAI_API_KEY is not configured.', 503)
   const form = new FormData()
   form.append('file', file, file.name || 'voice-note.webm')
-  form.append('model', process.env.OPENAI_TRANSCRIPTION_MODEL || DEFAULT_OPENAI_TRANSCRIPTION_MODEL)
+  form.append('model', config.transcriptionModel)
+  form.append('response_format', 'json')
 
-  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+  const response = await fetch(config.transcriptionEndpoint, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${config.apiKey}`,
     },
     body: form,
   })
 
-  const data = await response.json().catch(() => null)
-  if (!response.ok) {
-    throw new AiProviderError(`OpenAI transcription failed (${response.status}): ${redactAiSecrets(String(data?.error?.message || response.statusText || 'unknown error'))}`, response.status)
+  const data = await readJsonResponse(response, 'Transcription')
+  if (typeof data?.speechPresent === 'boolean' || typeof data?.transcript === 'string') {
+    return JSON.stringify(data)
   }
 
-  return JSON.stringify({ speechPresent: Boolean(data?.text), confidence: data?.text ? 1 : 0, transcript: String(data?.text || '').trim() })
+  const transcript = String(data?.text || data?.transcript || extractText(data)).trim()
+  return JSON.stringify({ speechPresent: Boolean(transcript), confidence: transcript ? 1 : 0, transcript })
 }

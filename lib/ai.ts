@@ -28,7 +28,6 @@ type TranscriptionResult = {
   transcript?: string
 }
 
-const DEFAULT_GROQ_TRANSCRIPTION_MODEL = 'whisper-large-v3-turbo'
 const MAX_INLINE_AUDIO_BYTES = 18 * 1024 * 1024
 const MAX_INLINE_VIDEO_BYTES = 25 * 1024 * 1024
 
@@ -56,14 +55,6 @@ const supportedVideoTypes = new Set([
   'video/quicktime',
   'video/webm',
 ])
-
-function groqKey() {
-  return process.env.GROQ_API_KEY || ''
-}
-
-function groqTranscriptionModel() {
-  return process.env.GROQ_TRANSCRIPTION_MODEL || DEFAULT_GROQ_TRANSCRIPTION_MODEL
-}
 
 function aiErrorMessage(error: unknown, action: string) {
   const rawMessage = error instanceof Error ? error.message : String(error)
@@ -132,42 +123,14 @@ function normalizeVideoType(file: File) {
   return baseType
 }
 
-async function transcribeAudioWithGroq(file: File) {
-  const apiKey = groqKey()
-  if (!apiKey) throw new Error('Missing GROQ_API_KEY for transcription fallback.')
-
-  const form = new FormData()
-  form.append('file', file, file.name || 'voice-note.webm')
-  form.append('model', groqTranscriptionModel())
-  form.append('response_format', 'json')
-
-  const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: form,
-  })
-
-  const data = await response.json().catch(() => null)
-  if (!response.ok) {
-    const message = data?.error?.message || response.statusText || 'Groq transcription failed'
-    throw new Error(`Groq transcription failed (${response.status}): ${redactAiSecrets(String(message))}`)
-  }
-
-  const transcript = String(data?.text || '').trim()
-  if (!transcript) throw new Error('Groq transcription returned an empty transcript.')
-  return transcript
-}
-
 export async function transcribeAudio(file: File) {
   if (file.size > MAX_INLINE_AUDIO_BYTES) {
     throw new Error('Audio file is too large for transcription. Keep recordings under 18 MB.')
   }
 
-  const mimeType = normalizeAudioType(file)
+  normalizeAudioType(file)
   try {
-    const text = await transcribeAudioWithProvider(file, mimeType)
+    const text = await transcribeAudioWithProvider(file)
     const parsed = parseJsonResponse<TranscriptionResult>(text || '{}', 'Transcription')
     const transcript = String(parsed.transcript || '').trim()
     const confidence = Number(parsed.confidence || 0)
@@ -182,11 +145,7 @@ export async function transcribeAudio(file: File) {
       throw error
     }
 
-    try {
-      return await transcribeAudioWithGroq(file)
-    } catch (fallbackError) {
-      throw new Error(`${aiErrorMessage(error, 'Transcription')} Groq transcription fallback also failed: ${redactAiSecrets(fallbackError instanceof Error ? fallbackError.message : String(fallbackError))}`)
-    }
+    throw new Error(aiErrorMessage(error, 'Transcription'))
   }
 }
 

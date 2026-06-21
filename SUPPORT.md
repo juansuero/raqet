@@ -15,7 +15,7 @@ Include:
 - Exact command or route that failed.
 - Visible error message.
 - Whether `RAQET_DB_PATH`, `RAQET_VIDEO_STORAGE_PATH`, `FFMPEG_PATH`, or `FFPROBE_PATH` is customized.
-- Whether AI is disabled, Gemini is configured, or OpenAI is configured.
+- Whether AI is disabled, not configured, or configured with an external endpoint.
 
 Do not include API keys, `.env` contents, private journal exports, raw full-match videos, or logs containing private data.
 

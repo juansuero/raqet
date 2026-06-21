@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { generateCoachReply } from '@/lib/openai'
+import { generateCoachReply } from '@/lib/ai'
 import { hasConfiguredAiProvider } from '@/lib/ai-provider'
 import { deleteSoloCoachPair, listSoloCoachMessages, listSoloMemories, listSoloRatingHistory, listSoloSessions, listSoloTournamentMatches, loadSoloPlayer, saveSoloCoachMessage } from '@/lib/solo-store'
 
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
   }
 
   if (!hasConfiguredAiProvider()) {
-    return NextResponse.json(transientReply(message, 'Local coach chat is ready, but no AI API key is configured. Add a supported AI key to enable generated coaching replies.'))
+    return NextResponse.json(transientReply(message, 'Local coach chat is ready, but no AI endpoint is configured. Add RAQET_AI_API_KEY, RAQET_AI_BASE_URL, and RAQET_AI_MODEL to enable generated coaching replies.'))
   }
 
   const recentSessions = listSoloSessions().slice(0, 12)

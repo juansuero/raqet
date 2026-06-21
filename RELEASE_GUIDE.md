@@ -11,7 +11,7 @@ Include:
 - Solo dashboard, onboarding/profile, sessions, opponents, tournaments, stats, memories, patterns, training plan, settings, import/export, and legal/privacy pages.
 - SQLite persistence through the local data layer.
 - Local video library, source video storage, point clipping, ffmpeg clip export, batch highlight export, and 9:16 reel export.
-- Optional bring-your-own external AI provider configuration for Gemini or OpenAI.
+- Optional bring-your-own external AI endpoint configuration.
 - Setup, privacy, security, contribution, support, changelog, and release checklist docs.
 
 Exclude from the public self-hosted release:
@@ -53,7 +53,7 @@ The app should start without:
 - Sentry env vars
 - Vercel Analytics env vars
 - invite/beta env vars
-- Gemini or OpenAI env vars
+- external AI endpoint env vars
 
 ## 4. Build Verification
 
@@ -102,7 +102,7 @@ Verify:
 
 ## 7. Optional AI Verification
 
-No-provider mode:
+No-endpoint mode:
 
 ```powershell
 $env:RAQET_AI_DISABLED="true"
@@ -111,23 +111,30 @@ npm.cmd run dev
 
 Verify journaling, manual video review, stats, memories, settings, and export still work.
 
-Provider mode:
+Endpoint mode:
 
 ```powershell
-$env:RAQET_AI_PROVIDER="gemini"
-$env:GEMINI_API_KEY="your-key"
+$env:RAQET_AI_API_KEY="your-key"
+$env:RAQET_AI_BASE_URL="https://your-ai-endpoint.example/v1"
+$env:RAQET_AI_MODEL="your-text-model"
 ```
 
-or
+Optional transcription:
 
 ```powershell
-$env:RAQET_AI_PROVIDER="openai"
-$env:OPENAI_API_KEY="your-key"
+$env:RAQET_AI_TRANSCRIPTION_MODEL="your-transcription-model"
 ```
 
-Verify at least one text/session AI action succeeds. If testing selected clip analysis, confirm only an explicitly exported short clip is sent after user action. Do not upload source full-match videos automatically.
+Optional selected clip video analysis:
 
-External AI provider API costs are the self-hoster's responsibility.
+```powershell
+$env:RAQET_AI_VIDEO_ENDPOINT="https://your-ai-endpoint.example/video/analyze"
+$env:RAQET_AI_VIDEO_MODEL="your-video-model"
+```
+
+Verify at least one text/session AI action succeeds. If testing selected clip analysis, confirm only an explicitly exported short clip is sent after user action and that the endpoint is explicitly configured. Do not upload source full-match videos automatically.
+
+External AI endpoint costs are the self-hoster's responsibility.
 
 ## 8. Import And Export Verification
 
@@ -151,7 +158,7 @@ Confirm:
 - Uploaded videos and exported clips/reels are ignored.
 - Logs are ignored.
 - Docs explain where data is stored.
-- Docs explain external AI provider data/cost responsibility.
+- Docs explain external AI endpoint data/cost responsibility.
 - No secrets are present in docs or source.
 
 Recommended scan:

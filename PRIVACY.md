@@ -33,11 +33,11 @@ Configurable paths:
 
 Deleting clip metadata in the app does not delete the source video or exported media files.
 
-## External AI Providers
+## External AI Endpoints
 
-AI is optional. If no provider is configured, the app remains usable for journaling, manual video review, stats, memories, patterns, training blocks, settings, import, and export.
+AI is optional. If no endpoint is configured, the app remains usable for journaling, manual video review, stats, memories, patterns, training blocks, settings, import, and export.
 
-If the self-hoster configures Gemini or OpenAI, selected AI actions may send content to that provider:
+If the self-hoster configures an external AI endpoint, selected AI actions may send content to that endpoint:
 
 - Profile/interview text for profile compilation
 - Session notes or transcripts for debriefs
@@ -46,7 +46,7 @@ If the self-hoster configures Gemini or OpenAI, selected AI actions may send con
 
 Raqet does not automatically upload raw source full-match videos. Raw clip upload analysis is disabled in the self-hosted build.
 
-External AI provider API costs, retention policies, and account security are the self-hoster's responsibility.
+External AI endpoint costs, retention policies, and account security are the self-hoster's responsibility.
 
 ## Backups
 
@@ -56,4 +56,4 @@ JSON exports do not contain source video binaries or exported media files. Back 
 
 ## Logs
 
-Logs should not contain API keys or full provider request payloads. Local filesystem paths may appear in user-visible storage information and file operation errors where needed to help the self-hoster manage their own files.
+Logs should not contain API keys or full external AI request payloads. Local filesystem paths may appear in user-visible storage information and file operation errors where needed to help the self-hoster manage their own files.

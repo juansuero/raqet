@@ -163,9 +163,9 @@ export default function SettingsPage() {
           <div className="flex items-start gap-3">
             <Brain className="mt-0.5 h-5 w-5 text-muted" />
             <div>
-              <h2 className="font-display text-lg font-bold text-foreground">External AI Provider</h2>
+              <h2 className="font-display text-lg font-bold text-foreground">External AI Endpoint</h2>
               <p className="mt-1 text-sm leading-6 text-muted">
-                AI is optional. Configure your own external provider with environment variables; Raqet does not require managed Raqet AI infrastructure and never shows API keys in the browser.
+                AI is optional. Configure your own external endpoint with environment variables; Raqet does not require managed Raqet AI infrastructure and never shows API keys in the browser.
               </p>
             </div>
           </div>
@@ -175,8 +175,8 @@ export default function SettingsPage() {
               <dd className="mt-1 text-foreground">{aiConfig?.configured ? 'Configured' : 'Not configured'}</dd>
             </div>
             <div className="rounded-lg border border-border bg-background p-3">
-              <dt className="text-xs font-medium uppercase tracking-label text-muted">Provider</dt>
-              <dd className="mt-1 text-foreground">{aiConfig?.provider || 'None'}</dd>
+              <dt className="text-xs font-medium uppercase tracking-label text-muted">Adapter</dt>
+              <dd className="mt-1 text-foreground">{aiConfig?.provider ? 'External HTTP' : 'None'}</dd>
             </div>
             <div className="rounded-lg border border-border bg-background p-3">
               <dt className="text-xs font-medium uppercase tracking-label text-muted">Model</dt>
@@ -189,7 +189,7 @@ export default function SettingsPage() {
           </dl>
           {!aiConfig?.configured && (
             <p className="mt-4 rounded-lg border border-border bg-background p-3 text-xs leading-5 text-muted">
-              Set <code>RAQET_AI_PROVIDER=gemini</code> with <code>GEMINI_API_KEY</code>, or <code>RAQET_AI_PROVIDER=openai</code> with <code>OPENAI_API_KEY</code>. You can also set <code>GEMINI_MODEL</code>, <code>OPENAI_MODEL</code>, or <code>OPENAI_TRANSCRIPTION_MODEL</code>.
+              Set <code>RAQET_AI_API_KEY</code>, <code>RAQET_AI_BASE_URL</code>, and <code>RAQET_AI_MODEL</code>. Add <code>RAQET_AI_TRANSCRIPTION_MODEL</code> for voice notes and <code>RAQET_AI_VIDEO_ENDPOINT</code> for selected clip video analysis.
             </p>
           )}
         </section>

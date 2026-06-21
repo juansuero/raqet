@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { NextResponse } from 'next/server'
-import { analyzeClipBuffer } from '@/lib/openai'
+import { analyzeClipBuffer } from '@/lib/ai'
 import { getLocalClip, saveLocalClip } from '@/lib/video-library'
 import { listSoloMemories, loadSoloPlayer, saveSoloMemory } from '@/lib/solo-store'
 

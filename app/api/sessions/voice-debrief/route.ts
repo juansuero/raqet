@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { analyzeVoiceDebrief, transcribeAudio } from '@/lib/openai'
+import { analyzeVoiceDebrief, transcribeAudio } from '@/lib/ai'
 import { hasConfiguredAiProvider } from '@/lib/ai-provider'
 import { getSoloSession, listSoloMemories, listSoloSessions, loadSoloPlayer, saveSoloMemory, saveSoloSession } from '@/lib/solo-store'
 
@@ -9,7 +9,7 @@ export const maxDuration = 60
 export async function POST(request: Request) {
   try {
     if (!hasConfiguredAiProvider()) {
-      return NextResponse.json({ error: 'Voice debrief needs a local AI API key.' }, { status: 503 })
+      return NextResponse.json({ error: 'Voice debrief needs an AI endpoint plus RAQET_AI_TRANSCRIPTION_MODEL.' }, { status: 503 })
     }
 
     const form = await request.formData()

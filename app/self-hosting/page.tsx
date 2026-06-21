@@ -6,7 +6,7 @@ export default function SelfHostingPage() {
         <p>Raqet runs as a single-player local app by default. No hosted auth, invite gate, team workspace, managed usage limit, Sentry, Vercel Analytics, or Supabase project is required.</p>
         <p>SQLite is the default persistence layer. Initialize it with npm run db:init before starting the app.</p>
         <p>AI features are optional. Without an AI key, the journal, profile, opponents, tournaments, stats, memory review, settings, and export flows still run locally.</p>
-        <p>Raw audio is not stored by Raqet after processing. If an AI provider is configured, audio is sent to that provider for transcription or debrief generation.</p>
+        <p>Raw audio is not stored by Raqet after processing. If an AI endpoint is configured, audio is sent there for transcription or debrief generation.</p>
       </div>
     </main>
   )

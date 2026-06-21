@@ -2023,7 +2023,7 @@ function SelectedClipPanel({
 
       <div className="mt-4 border-t border-border pt-4">
         <h3 className="font-display text-sm font-bold uppercase tracking-label text-foreground">Optional AI review</h3>
-        <p className="mt-2 text-xs leading-5 text-muted">Sends only this exported short clip plus point metadata to your configured external AI provider.</p>
+        <p className="mt-2 text-xs leading-5 text-muted">Sends only this exported short clip plus point metadata to your configured external AI endpoint.</p>
         <button type="button" onClick={analyzeSelectedClip} disabled={busy || !selectedClip.exportedClipPath} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground disabled:opacity-50">
           <Brain className="h-4 w-4" />
           Analyze selected clip

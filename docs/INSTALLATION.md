@@ -7,7 +7,7 @@ This guide installs Raqet as a local self-hosted solo app.
 - Node.js 22 or newer.
 - npm.
 - Optional: `ffmpeg` and `ffprobe` for video probing, clip export, highlight export, and 9:16 reel export.
-- Optional: Gemini or OpenAI API key if you want the built-in AI actions.
+- Optional: external AI endpoint credentials if you want the built-in AI actions.
 
 ## AI-Assisted Install
 
@@ -35,7 +35,7 @@ npm.cmd run dev
 
 Open `http://localhost:3000/dashboard`.
 
-The app starts without Supabase, hosted auth, invite, Sentry, Analytics, Gemini, or OpenAI env vars.
+The app starts without Supabase, hosted auth, invite, Sentry, Analytics, or external AI env vars.
 
 ## Production Mode
 

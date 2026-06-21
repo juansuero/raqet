@@ -8,7 +8,7 @@ The open-source baseline is local-first:
 - No hosted auth, invite gate, Sentry, Vercel Analytics, Supabase project, managed usage limit, billing system, or Raqet-hosted AI proxy required.
 - Local player profile onboarding, sessions, opponents, tournaments, stats, memories, settings, JSON import/export, privacy/terms pages, patterns, and training blocks.
 - Local video library with source video storage, point clipping, ffmpeg clip export, batch highlight export, and 9:16 reel export.
-- Optional bring-your-own Gemini or OpenAI keys for AI actions.
+- Optional bring-your-own external AI endpoint for AI actions.
 
 Teams, coach roster workflows, hosted beta invites, hosted analytics/monitoring, and managed usage limits are excluded from the default self-hosted solo release.
 
@@ -27,7 +27,7 @@ Teams, coach roster workflows, hosted beta invites, hosted analytics/monitoring,
 - Node.js 22 or newer. Raqet uses Node's built-in SQLite module.
 - npm.
 - Optional: `ffmpeg` and `ffprobe` on `PATH` for video duration probing and clip/reel export.
-- Optional: a Gemini or OpenAI API key if you want the built-in AI actions.
+- Optional: an external AI endpoint if you want the built-in AI actions.
 
 ## Quick Start
 
@@ -86,13 +86,13 @@ RAQET_DB_PATH=
 RAQET_VIDEO_STORAGE_PATH=
 FFMPEG_PATH=
 FFPROBE_PATH=
-RAQET_AI_PROVIDER=
 RAQET_AI_DISABLED=false
-GEMINI_API_KEY=
-GEMINI_MODEL=gemini-flash-latest
-OPENAI_API_KEY=
-OPENAI_MODEL=gpt-4o-mini
-OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe
+RAQET_AI_API_KEY=
+RAQET_AI_BASE_URL=
+RAQET_AI_MODEL=
+RAQET_AI_TRANSCRIPTION_MODEL=
+RAQET_AI_VIDEO_ENDPOINT=
+RAQET_AI_VIDEO_MODEL=
 RAQET_SOLO_EMAIL=player@localhost
 RAQET_SOLO_NAME=Player
 ```
@@ -115,34 +115,36 @@ See [docs/IMPORT_EXPORT.md](docs/IMPORT_EXPORT.md).
 
 ## Optional AI
 
-AI is optional. Journaling, manual video review, stats, memories, settings, import, and export work without a provider.
+AI is optional. Journaling, manual video review, stats, memories, settings, import, and export work without an AI endpoint.
 
-The environment variables below matter only when you want Raqet's built-in AI features. They select which adapter the app should call and provide that provider's API key.
+The environment variables below matter only when you want Raqet's built-in AI features. Raqet uses a provider-agnostic HTTP adapter, so you can point it at any service, local gateway, proxy, or workflow that exposes a compatible contract.
 
-Currently implemented adapters:
+Minimum text setup:
 
-- `gemini`
-- `openai`
-
-Use Gemini:
-
-```powershell
-$env:RAQET_AI_PROVIDER="gemini"
-$env:GEMINI_API_KEY="your-key"
+```env
+RAQET_AI_API_KEY=your-key
+RAQET_AI_BASE_URL=https://your-ai-endpoint.example/v1
+RAQET_AI_MODEL=your-text-model
 ```
 
-Use OpenAI:
+Optional voice transcription:
 
-```powershell
-$env:RAQET_AI_PROVIDER="openai"
-$env:OPENAI_API_KEY="your-key"
+```env
+RAQET_AI_TRANSCRIPTION_MODEL=your-transcription-model
 ```
 
-If you want a different provider, leave AI disabled or add a new provider adapter in `lib/ai-provider.ts`. The local journal, import/export, and video workflow do not depend on Gemini or OpenAI.
+Optional selected clip video analysis:
 
-Set `RAQET_AI_DISABLED=true` to force the no-provider path even if keys exist in your shell or `.env`.
+```env
+RAQET_AI_VIDEO_ENDPOINT=https://your-ai-endpoint.example/video/analyze
+RAQET_AI_VIDEO_MODEL=your-video-model
+```
 
-External AI provider API costs are the self-hoster's responsibility. Raqet does not include billing, hosted usage limits, or managed Raqet AI infrastructure.
+Text generation defaults to `${RAQET_AI_BASE_URL}/chat/completions`. Transcription defaults to `${RAQET_AI_BASE_URL}/audio/transcriptions`. You can override either with `RAQET_AI_TEXT_ENDPOINT` or `RAQET_AI_TRANSCRIPTION_ENDPOINT`.
+
+Set `RAQET_AI_DISABLED=true` to force the no-endpoint path even if keys exist in your shell or `.env`.
+
+External AI endpoint costs are the self-hoster's responsibility. Raqet does not include billing, hosted usage limits, or managed Raqet AI infrastructure.
 
 AI actions disclose what is sent. Source full-match videos are never uploaded automatically. Selected video AI sends an exported short clip only after explicit user action.
 
@@ -195,7 +197,7 @@ Browser smoke checklist:
 - `/sessions`, `/sessions/new`, and session detail pages use SQLite-backed records.
 - `/opponents`, `/tournaments`, `/stats`, `/memory`, `/patterns`, `/training-plan`, `/settings`, and `/api/export` load.
 - `/clips` imports a local video, plays it, marks point start/end, saves point metadata, exports a standard clip, and exports a 9:16 reel.
-- `/settings` shows AI provider status without exposing API keys.
+- `/settings` shows AI endpoint status without exposing API keys.
 - `/team` and `/api/team` return 404 and Team is absent from normal navigation.
 
 See [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) before tagging a release.
@@ -210,9 +212,9 @@ Node currently marks the built-in SQLite module experimental. The production bui
 
 Install ffmpeg and ffprobe, add them to `PATH`, or set `FFMPEG_PATH` and `FFPROBE_PATH`. Metadata still saves without ffmpeg; exports require it.
 
-AI key missing
+AI endpoint missing
 
-Leave AI disabled for local-only use, or configure `RAQET_AI_PROVIDER` with the matching provider key. Do not commit `.env`.
+Leave AI disabled for local-only use, or configure `RAQET_AI_API_KEY`, `RAQET_AI_BASE_URL`, and `RAQET_AI_MODEL`. Do not commit `.env`.
 
 Team routes
 
@@ -234,7 +236,7 @@ The self-hosted release excludes Team source routes. `/team` and `/api/team` are
 
 ## Privacy
 
-Read [PRIVACY.md](PRIVACY.md). In short: local journal data and videos stay on the self-hoster's machine by default. External AI calls happen only when the self-hoster configures a provider and triggers an AI action.
+Read [PRIVACY.md](PRIVACY.md). In short: local journal data and videos stay on the self-hoster's machine by default. External AI calls happen only when the self-hoster configures an endpoint and triggers an AI action.
 
 ## License
 

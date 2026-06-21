@@ -1,5 +1,5 @@
 import type { Session } from '@/lib/data'
-import type { PreSessionFocus } from '@/lib/openai'
+import type { PreSessionFocus } from '@/lib/ai'
 
 export function formatPreSessionFocus(focus: PreSessionFocus) {
   return [

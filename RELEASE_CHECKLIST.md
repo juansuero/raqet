@@ -6,7 +6,7 @@ Use this checklist before tagging or publishing an open-source self-hosted Raqet
 
 - [ ] Fresh checkout installs with `npm.cmd install`.
 - [ ] `npm.cmd run db:init` creates `data/raqet.sqlite`.
-- [ ] `npm.cmd run dev` starts without Supabase, hosted auth, invite, Sentry, Analytics, usage-limit, Gemini, or OpenAI env vars.
+- [ ] `npm.cmd run dev` starts without Supabase, hosted auth, invite, Sentry, Analytics, usage-limit, or external AI env vars.
 - [ ] `npm.cmd run typecheck` passes.
 - [ ] `npm.cmd run build` passes.
 - [ ] `npm.cmd run start` serves the built app.
@@ -46,12 +46,12 @@ Use this checklist before tagging or publishing an open-source self-hosted Raqet
 
 ## AI
 
-- [ ] With no provider configured, journaling, video review, stats, memories, settings, and export still work.
+- [ ] With no AI endpoint configured, journaling, video review, stats, memories, settings, and export still work.
 - [ ] `/settings` shows AI as not configured and does not expose keys.
-- [ ] With a real Gemini key, at least one text/session AI action succeeds.
-- [ ] With a real OpenAI key, at least one text/session AI action succeeds.
-- [ ] Provider failure returns a clear redacted error and does not corrupt local data.
-- [ ] Selected clip AI sends only an exported short clip after explicit user action.
+- [ ] With a real compatible text endpoint, at least one text/session AI action succeeds.
+- [ ] Endpoint failure returns a clear redacted error and does not corrupt local data.
+- [ ] Without `RAQET_AI_VIDEO_ENDPOINT`, selected clip AI shows a clear unavailable/error state.
+- [ ] With `RAQET_AI_VIDEO_ENDPOINT`, selected clip AI sends only an exported short clip after explicit user action.
 - [ ] Raw source full-match videos are not automatically uploaded.
 
 ## Import And Export

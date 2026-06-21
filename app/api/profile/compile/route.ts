@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { compilePlayerProfile } from '@/lib/openai'
+import { compilePlayerProfile } from '@/lib/ai'
 import { hasConfiguredAiProvider } from '@/lib/ai-provider'
 import { loadSoloPlayer } from '@/lib/solo-store'
 
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
         weeklyTrainingFrequency: basePlayer.weeklyTrainingFrequency || 0,
         strengths: basePlayer.strengths || [],
         weaknesses: basePlayer.weaknesses || [],
-        profileMarkdown: basePlayer.profileMarkdown || '# Player Profile\n\nComplete onboarding to generate a richer AI profile when an AI key is configured.',
+        profileMarkdown: basePlayer.profileMarkdown || '# Player Profile\n\nComplete onboarding to generate a richer AI profile when an AI endpoint is configured.',
       })
     }
 
