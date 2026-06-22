@@ -36,6 +36,14 @@
     max-width: 54ch;
   }
 
+  main :where(h1, h2, h3) {
+    text-wrap: balance;
+  }
+
+  main :where(p, li, blockquote) {
+    text-wrap: pretty;
+  }
+
   main :where(.max-w-none, .truncate, .whitespace-nowrap, .sr-only) {
     max-width: none;
   }
@@ -46,6 +54,10 @@
 
   .text-balance {
     text-wrap: balance;
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
   }
 
   .hero-heading {

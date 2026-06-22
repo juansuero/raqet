@@ -14,20 +14,20 @@ export function PageHeader({ title, subtitle, backHref, action }: PageHeaderProp
       {backHref && (
         <Link
           href={backHref}
-          className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground mb-3 transition-colors"
+          className="mb-3 inline-flex min-h-11 items-center gap-1 rounded-md text-sm text-muted transition-colors hover:text-foreground"
         >
           <ArrowLeft className="w-4 h-4" />
           Back
         </Link>
       )}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl font-bold tracking-display text-foreground">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-balance font-display text-3xl font-bold tracking-display text-foreground">
             {title}
           </h1>
-          {subtitle && <p className="mt-1 max-w-[54ch] text-muted">{subtitle}</p>}
+          {subtitle && <p className="mt-1 max-w-[54ch] text-pretty text-muted">{subtitle}</p>}
         </div>
-        {action && <div className="flex-shrink-0">{action}</div>}
+        {action && <div className="shrink-0">{action}</div>}
       </div>
     </div>
   )

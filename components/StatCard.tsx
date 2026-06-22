@@ -16,8 +16,8 @@ export function StatCard({ title, value, subtitle, trend, trendValue, icon }: St
         <p className="text-xs font-medium leading-5 tracking-label uppercase text-muted">{title}</p>
         {icon && <div className="text-muted">{icon}</div>}
       </div>
-      <p className="text-2xl font-display font-bold text-foreground">{value}</p>
-      {subtitle && <p className="mt-1 max-w-[54ch] text-sm text-muted">{subtitle}</p>}
+      <p className="font-display text-2xl font-bold tabular-nums text-foreground">{value}</p>
+      {subtitle && <p className="mt-1 max-w-[54ch] text-pretty text-sm text-muted">{subtitle}</p>}
       {trend && trendValue && (
         <div className={`flex items-center gap-1 mt-2 text-xs font-medium ${
           trend === 'up' ? 'text-success' : trend === 'down' ? 'text-danger' : 'text-muted'
